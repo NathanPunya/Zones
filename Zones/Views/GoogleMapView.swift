@@ -1,0 +1,121 @@
+import CoreLocation
+import GoogleMaps
+import SwiftUI
+import UIKit
+
+struct GoogleMapView: UIViewRepresentable {
+    @Binding var cameraTarget: CLLocationCoordinate2D?
+    var mapDisplayMode: MapDisplayMode
+    var trafficEnabled: Bool
+    var routePoints: [CLLocationCoordinate2D]
+    var zonePolygons: [ZoneRecord]
+    var suggestedRoutes: [[CLLocationCoordinate2D]]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> GMSMapView {
+        let camera = GMSCameraPosition.camera(withLatitude: 37.3349, longitude: -122.0090, zoom: 14)
+        let mapView = GMSMapView()
+        mapView.camera = camera
+        mapView.isMyLocationEnabled = true
+        mapView.settings.compassButton = true
+        mapView.settings.myLocationButton = true
+        applyMapStyle(mapView)
+        return mapView
+    }
+
+    func updateUIView(_ mapView: GMSMapView, context: Context) {
+        applyMapStyle(mapView)
+        mapView.clear()
+
+        if routePoints.count >= 2 {
+            let path = GMSMutablePath()
+            for p in routePoints {
+                path.add(p)
+            }
+            let line = GMSPolyline(path: path)
+            line.strokeColor = UIColor.systemOrange
+            line.strokeWidth = 5
+            line.map = mapView
+        }
+
+        for zone in zonePolygons {
+            let path = GMSMutablePath()
+            for p in zone.polygon {
+                path.add(p.coordinate)
+            }
+            let poly = GMSPolygon(path: path)
+            poly.strokeColor = UIColor.systemBlue.withAlphaComponent(0.9)
+            poly.fillColor = UIColor.systemBlue.withAlphaComponent(0.18)
+            poly.map = mapView
+        }
+
+        for suggestion in suggestedRoutes where suggestion.count >= 3 {
+            let path = GMSMutablePath()
+            for p in suggestion {
+                path.add(p)
+            }
+            let line = GMSPolyline(path: path)
+            line.strokeColor = UIColor.systemGreen.withAlphaComponent(0.85)
+            line.strokeWidth = 3
+            line.map = mapView
+        }
+
+        let coordinator = context.coordinator
+
+        if let route = suggestedRoutes.first, route.count >= 3 {
+            let sig = Self.routeSignature(route)
+            if sig != coordinator.lastSuggestedRouteSignature {
+                coordinator.lastSuggestedRouteSignature = sig
+                let bounds = Self.coordinateBounds(for: route)
+                let padding = UIEdgeInsets(top: 72, left: 48, bottom: 200, right: 48)
+                let update = GMSCameraUpdate.fit(bounds, with: padding)
+                mapView.animate(with: update)
+                DispatchQueue.main.async {
+                    cameraTarget = nil
+                }
+            }
+        } else {
+            coordinator.lastSuggestedRouteSignature = nil
+            if let target = cameraTarget {
+                let camera = GMSCameraPosition.camera(withTarget: target, zoom: 15)
+                mapView.animate(to: camera)
+                DispatchQueue.main.async {
+                    cameraTarget = nil
+                }
+            }
+        }
+    }
+
+    /// Stable id for “this polyline changed” so we only fit once per new suggestion.
+    private static func routeSignature(_ route: [CLLocationCoordinate2D]) -> String {
+        guard let first = route.first, let last = route.last else { return "" }
+        let mid = route[route.count / 2]
+        return "\(route.count)_\(first.latitude)_\(first.longitude)_\(mid.latitude)_\(mid.longitude)_\(last.latitude)_\(last.longitude)"
+    }
+
+    private static func coordinateBounds(for path: [CLLocationCoordinate2D]) -> GMSCoordinateBounds {
+        var bounds = GMSCoordinateBounds(coordinate: path[0], coordinate: path[0])
+        for p in path.dropFirst() {
+            bounds = bounds.includingCoordinate(p)
+        }
+        return bounds
+    }
+
+    private func applyMapStyle(_ mapView: GMSMapView) {
+        switch mapDisplayMode {
+        case .standard:
+            mapView.mapType = GMSMapViewType.normal
+        case .satellite:
+            mapView.mapType = GMSMapViewType.satellite
+        }
+        // Obj-C `trafficEnabled` (getter `isTrafficEnabled`); Swift exposes `isTrafficEnabled`.
+        mapView.isTrafficEnabled = trafficEnabled
+    }
+
+    final class Coordinator {
+        var lastSuggestedRouteSignature: String?
+    }
+}
