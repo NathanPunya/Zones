@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		BF0001 /* ZonesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0001 /* ZonesApp.swift */; };
+		BF0028 /* ZonesAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0031 /* ZonesAppDelegate.swift */; };
 		BF0002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0002 /* ContentView.swift */; };
 		BF0003 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0003 /* AppConfiguration.swift */; };
 		BF0004 /* UserIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0004 /* UserIdentity.swift */; };
@@ -33,6 +34,7 @@
 		BF0024 /* MeasurementUnits.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0027 /* MeasurementUnits.swift */; };
 		BF0025 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0028 /* SettingsView.swift */; };
 		BF0026 /* RouteSurfacePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0029 /* RouteSurfacePreference.swift */; };
+		BF0027 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FR0030 /* GoogleService-Info.plist */; };
 		F47CF4BA2F7DE603001258CC /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0001 /* GoogleMaps */; };
 		F47CF4BB2F7DE603001258CC /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0002 /* FirebaseCore */; };
 		F47CF4BC2F7DE603001258CC /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0003 /* FirebaseFirestore */; };
@@ -40,6 +42,7 @@
 
 /* Begin PBXFileReference section */
 		FR0001 /* ZonesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonesApp.swift; sourceTree = "<group>"; };
+		FR0031 /* ZonesAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonesAppDelegate.swift; sourceTree = "<group>"; };
 		FR0002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FR0003 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		FR0004 /* UserIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserIdentity.swift; sourceTree = "<group>"; };
@@ -68,6 +71,7 @@
 		FR0027 /* MeasurementUnits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementUnits.swift; sourceTree = "<group>"; };
 		FR0028 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FR0029 /* RouteSurfacePreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteSurfacePreference.swift; sourceTree = "<group>"; };
+		FR0030 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,6 +101,7 @@
 			children = (
 				G00009 /* Generated */,
 				FR0001 /* ZonesApp.swift */,
+				FR0031 /* ZonesAppDelegate.swift */,
 				FR0002 /* ContentView.swift */,
 				G00004 /* App */,
 				G00005 /* Models */,
@@ -105,6 +110,7 @@
 				G00008 /* ViewModels */,
 				FR0018 /* Assets.xcassets */,
 				FR0019 /* Info.plist */,
+				FR0030 /* GoogleService-Info.plist */,
 				FR0020 /* Zones.entitlements */,
 			);
 			path = Zones;
@@ -252,6 +258,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BF0018 /* Assets.xcassets in Resources */,
+				BF0027 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,6 +294,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BF0001 /* ZonesApp.swift in Sources */,
+				BF0028 /* ZonesAppDelegate.swift in Sources */,
 				BF0002 /* ContentView.swift in Sources */,
 				BF0003 /* AppConfiguration.swift in Sources */,
 				BF0004 /* UserIdentity.swift in Sources */,
