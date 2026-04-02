@@ -120,7 +120,11 @@ final class MemoryTerritorySyncService: TerritorySyncing {
 }
 
 final class FirestoreTerritorySyncService: TerritorySyncing {
-    private let db = Firestore.firestore()
+    /// Lazy so `Firestore` is not touched until after `FirebaseApp.configure()` (SwiftUI can build `MainMapViewModel` very early).
+    private lazy var db: Firestore = {
+        FirebaseBootstrap.configureIfNeeded()
+        return Firestore.firestore()
+    }()
     private let subjectZones = CurrentValueSubject<[ZoneRecord], Never>([])
     private let subjectBoard = CurrentValueSubject<[LeaderboardEntry], Never>([])
     private var zoneListener: ListenerRegistration?

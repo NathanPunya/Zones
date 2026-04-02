@@ -1,18 +1,14 @@
 import SwiftUI
-import GoogleMaps
 
 @main
 struct ZonesApp: App {
+    @UIApplicationDelegateAdaptor(ZonesAppDelegate.self) private var appDelegate
+
     @StateObject private var runTracker = RunTrackingService()
     @StateObject private var motion = CoreMotionService()
     @StateObject private var health = HealthKitService()
     @StateObject private var streaks = StreakService()
     @StateObject private var notifications = TerritoryNotificationService()
-
-    init() {
-        FirebaseBootstrap.configureIfNeeded()
-        GMSServices.provideAPIKey(AppConfiguration.googleMapsAPIKey)
-    }
 
     var body: some Scene {
         WindowGroup {
