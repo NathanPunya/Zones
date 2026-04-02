@@ -4,11 +4,22 @@ import Foundation
 /// Suggests loop routes: the difficulty slider controls **loop radius** (short/easy → long/hard) and **orientation** so the path changes on screen.
 /// Perimeter points are snapped via Google Directions from **your location** (start/end); `fallbackDense` is used if Directions fails.
 struct RouteSuggestionEngine {
-    /// Slider range for difficulty; maps to loop radius between engine min/max (whole numbers only in UI).
+    /// Slider range in the UI (whole steps). Maps into the legacy 1…50 radius curve so **1 → former 2** and **25 → former 25**.
     static let difficultySliderMin = 1.0
-    static let difficultySliderMax = 100.0
+    static let difficultySliderMax = 25.0
     static var difficultySliderRange: ClosedRange<Double> {
         difficultySliderMin...difficultySliderMax
+    }
+
+    /// Former on-screen slider used a 1…50 scale; radius `t` still uses that curve for continuity.
+    private static let legacySliderMin = 1.0
+    private static let legacySliderMax = 50.0
+    private static var legacySliderSpan: Double { legacySliderMax - legacySliderMin }
+
+    /// Display 1…25 → legacy 2…25 (linear), then legacy feeds the same `t` as the old 1…50 slider at those levels.
+    private static func legacySliderLevelForRouteMath(fromDisplayLevel display: Double) -> Double {
+        let d = min(max(display, difficultySliderMin), difficultySliderMax)
+        return 2 + (d - 1) * (25 - 2) / (25 - 1)
     }
 
     /// Upper bound on loop radius (meters). Larger → bigger suggested area.
@@ -46,9 +57,9 @@ struct RouteSuggestionEngine {
             ? Self.defaultAvgRunDistanceMeters
             : recentRunDistances.reduce(0, +) / Double(recentRunDistances.count)
 
-        // Slider maps linearly to radius between computed min and max (capped for API / sanity).
-        let span = Self.difficultySliderMax - Self.difficultySliderMin
-        let t = (desiredDifficulty - Self.difficultySliderMin) / span
+        let legacy = Self.legacySliderLevelForRouteMath(fromDisplayLevel: desiredDifficulty)
+        // Same radius / orientation mapping as before, keyed off legacy 1…50 (display 1 → legacy 2, 25 → 25).
+        let t = (legacy - Self.legacySliderMin) / Self.legacySliderSpan
         let minRadius = max(80, avgDistance * 0.08)
         let maxRadius = min(
             Self.radiusCapMeters,
@@ -75,7 +86,7 @@ struct RouteSuggestionEngine {
         let difficulty = estimateDifficulty(loop: cand.dense, center: center, occupiedPolygons: occupied)
         let score = scoreCandidate(
             difficulty: difficulty,
-            desired: desiredDifficulty,
+            desired: legacy,
             loop: cand.dense,
             occupiedPolygons: occupied
         )

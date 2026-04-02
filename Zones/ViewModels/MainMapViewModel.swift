@@ -9,8 +9,8 @@ final class MainMapViewModel: ObservableObject {
     @Published var leaderboard: [LeaderboardEntry] = []
     @Published var suggestedLoops: [[CLLocationCoordinate2D]] = []
     @Published var suggestedRouteDistanceMeters: Double = 0
-    /// Default ≈ same relative position as 2.5 on the old 0.5…6 slider, on 1…100.
-    @Published var desiredDifficulty: Double = 15
+    /// Default ≈ former level 5 on the old 1…50 scale → display **4** on 1…25 (see `RouteSuggestionEngine`).
+    @Published var desiredDifficulty: Double = 4
     /// When false, the green AI route is hidden on the map (data stays cached).
     @Published var showAIRoute: Bool = false
 
@@ -24,10 +24,12 @@ final class MainMapViewModel: ObservableObject {
     private let routeEngine = RouteSuggestionEngine()
     private var cancellables = Set<AnyCancellable>()
     private var routeFetchTask: Task<Void, Never>?
-    /// Extra rotation for waypoint placement; increments when the user asks for another route at the same level.
+    /// Extra rotation for waypoint placement when the last polyline would repeat (any refresh).
     private var routeOrientationBiasRadians: Double = 0
-    /// Last shown AI polyline fingerprint; used to avoid repeating the same path on “New route”.
+    /// Last shown AI polyline fingerprint; new routes must differ (slider changes, new level, or “New route”).
     private var lastDisplayedRouteSignature: String?
+    /// Incremented on each `refreshSuggestions` with a valid center so only the latest in-flight fetch may finish UI/loading.
+    private var refreshEpoch: UInt64 = 0
 
     init(sync: TerritorySyncing) {
         self.sync = sync
@@ -55,36 +57,54 @@ final class MainMapViewModel: ObservableObject {
     }
 
     /// - Parameter rotateForNewRoute: If true, nudges anchor orientation so Directions can return a different loop without changing level.
+    /// - Parameter showsProgress: When false (e.g. GPS/auth-driven refresh), the route updates silently without loading UI.
     func refreshSuggestions(
         center: CLLocationCoordinate2D?,
         recentDistances: [Double],
         surfacePreference: RouteSurfacePreference,
-        rotateForNewRoute: Bool = false
+        rotateForNewRoute: Bool = false,
+        showsProgress: Bool = true
     ) {
         routeFetchTask?.cancel()
-        guard let center else { return }
+        guard let center else {
+            if showsProgress {
+                isRefreshingSuggestedRoute = false
+            }
+            return
+        }
+
+        refreshEpoch += 1
+        let epoch = refreshEpoch
+        let affectsLoadingUI = showsProgress
 
         if !rotateForNewRoute {
             routeOrientationBiasRadians = 0
         }
 
-        isRefreshingSuggestedRoute = true
-        bannerMessage = nil
+        if affectsLoadingUI {
+            isRefreshingSuggestedRoute = true
+            bannerMessage = nil
+        } else {
+            isRefreshingSuggestedRoute = false
+        }
 
         routeFetchTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 try await Task.sleep(for: .milliseconds(480))
             } catch {
                 return
             }
-            guard !Task.isCancelled, let self else { return }
+            guard !Task.isCancelled else { return }
+            guard epoch == self.refreshEpoch else { return }
 
-            let wantsDifferentPath = rotateForNewRoute
             let maxUniquenessAttempts = 16
             var uniquenessAttempt = 0
 
             while true {
-                if wantsDifferentPath {
+                if uniquenessAttempt == 0 && rotateForNewRoute {
+                    self.routeOrientationBiasRadians += (Double.pi * 2) / 7
+                } else if uniquenessAttempt > 0 {
                     self.routeOrientationBiasRadians += (Double.pi * 2) / 7
                 }
 
@@ -93,37 +113,47 @@ final class MainMapViewModel: ObservableObject {
                     recentDistances: recentDistances,
                     surfacePreference: surfacePreference
                 ) else {
+                    guard epoch == self.refreshEpoch else { return }
                     self.suggestedLoops = []
                     self.suggestedRouteDistanceMeters = 0
                     self.routeInsight = nil
-                    self.isRefreshingSuggestedRoute = false
-                    self.bannerMessage = "No suggested loop here — try moving the map or adjusting the slider."
+                    if affectsLoadingUI {
+                        self.isRefreshingSuggestedRoute = false
+                    }
+                    if affectsLoadingUI {
+                        self.bannerMessage = "No suggested loop here — try moving the map or adjusting the slider."
+                    }
                     return
                 }
+                guard epoch == self.refreshEpoch else { return }
 
                 let (loop, best, pathKind) = built
                 let sig = ZoneGeometry.polylineSignature(loop)
 
-                if wantsDifferentPath,
-                   let previous = self.lastDisplayedRouteSignature,
+                if let previous = self.lastDisplayedRouteSignature,
                    sig == previous,
                    uniquenessAttempt < maxUniquenessAttempts - 1 {
                     uniquenessAttempt += 1
                     if Task.isCancelled {
-                        self.isRefreshingSuggestedRoute = false
+                        if epoch == self.refreshEpoch, affectsLoadingUI {
+                            self.isRefreshingSuggestedRoute = false
+                        }
                         return
                     }
                     continue
                 }
 
-                if wantsDifferentPath, let previous = self.lastDisplayedRouteSignature, sig == previous {
+                if let previous = self.lastDisplayedRouteSignature, sig == previous, affectsLoadingUI {
                     self.bannerMessage = "Couldn’t find a different route — try moving the map or changing level."
                 }
 
                 guard !Task.isCancelled else {
-                    self.isRefreshingSuggestedRoute = false
+                    if epoch == self.refreshEpoch, affectsLoadingUI {
+                        self.isRefreshingSuggestedRoute = false
+                    }
                     return
                 }
+                guard epoch == self.refreshEpoch else { return }
 
                 self.lastDisplayedRouteSignature = sig
                 self.suggestedLoops = [loop]
@@ -138,7 +168,9 @@ final class MainMapViewModel: ObservableObject {
                     pathKind: pathKind,
                     enclosedAreaSquareMeters: areaM2
                 )
-                self.isRefreshingSuggestedRoute = false
+                if affectsLoadingUI {
+                    self.isRefreshingSuggestedRoute = false
+                }
                 return
             }
         }

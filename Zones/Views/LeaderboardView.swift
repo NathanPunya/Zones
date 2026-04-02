@@ -26,7 +26,7 @@ struct LeaderboardView: View {
                         VStack(alignment: .trailing, spacing: 2) {
                             Text("\(row.weeklyScore)")
                                 .font(.headline.monospacedDigit())
-                            Text("\(row.streakDays)d streak")
+                            Text("\(row.streakDays) streak")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }

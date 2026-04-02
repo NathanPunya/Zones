@@ -11,6 +11,15 @@ enum GoogleDirectionsService {
         case invalidAnchors
     }
 
+    /// Cold-start Directions calls can hit transient path/QUIC noise; wait for connectivity and retry URL errors.
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 120
+        return URLSession(configuration: config)
+    }()
+
     private struct DirectionsResponse: Decodable {
         let routes: [Route]
         let status: String
@@ -56,7 +65,7 @@ enum GoogleDirectionsService {
 
         guard let url = components.url else { throw DirectionsError.invalidResponse }
 
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await dataFromDirectionsAPI(url: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw DirectionsError.invalidResponse
         }
@@ -88,7 +97,7 @@ enum GoogleDirectionsService {
 
         guard let url = components.url else { throw DirectionsError.invalidResponse }
 
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await dataFromDirectionsAPI(url: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw DirectionsError.invalidResponse
         }
@@ -101,6 +110,36 @@ enum GoogleDirectionsService {
         let path = decodeOverviewPolyline(route.overview_polyline.points)
         guard path.count >= 2 else { throw DirectionsError.noPath }
         return path
+    }
+
+    private static func dataFromDirectionsAPI(url: URL, attempt: Int = 0) async throws -> (Data, URLResponse) {
+        let maxAttempts = 3
+        do {
+            return try await session.data(from: url)
+        } catch {
+            guard attempt + 1 < maxAttempts, shouldRetryTransientURLError(error) else { throw error }
+            let delayMs = 250 * (attempt + 1)
+            try await Task.sleep(for: .milliseconds(delayMs))
+            return try await dataFromDirectionsAPI(url: url, attempt: attempt + 1)
+        }
+    }
+
+    private static func shouldRetryTransientURLError(_ error: Error) -> Bool {
+        let code = (error as? URLError)?.code
+        switch code {
+        case .timedOut,
+             .networkConnectionLost,
+             .cannotConnectToHost,
+             .dnsLookupFailed,
+             .notConnectedToInternet,
+             .cannotFindHost,
+             .internationalRoamingOff,
+             .dataNotAllowed,
+             .secureConnectionFailed:
+            return true
+        default:
+            return false
+        }
     }
 
     private static func coordinateString(_ c: CLLocationCoordinate2D) -> String {
