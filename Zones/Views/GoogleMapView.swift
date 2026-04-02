@@ -21,7 +21,8 @@ struct GoogleMapView: UIViewRepresentable {
         mapView.camera = camera
         mapView.isMyLocationEnabled = true
         mapView.settings.compassButton = true
-        mapView.settings.myLocationButton = true
+        // Custom recenter control in SwiftUI (top-trailing); SDK button is fixed bottom-trailing.
+        mapView.settings.myLocationButton = false
         applyMapStyle(mapView)
         return mapView
     }
@@ -65,7 +66,14 @@ struct GoogleMapView: UIViewRepresentable {
 
         let coordinator = context.coordinator
 
-        if let route = suggestedRoutes.first, route.count >= 3 {
+        // User-driven recenter wins over fitting the AI route for this update.
+        if let target = cameraTarget {
+            let camera = GMSCameraPosition.camera(withTarget: target, zoom: 15)
+            mapView.animate(to: camera)
+            DispatchQueue.main.async {
+                cameraTarget = nil
+            }
+        } else if let route = suggestedRoutes.first, route.count >= 3 {
             let sig = Self.routeSignature(route)
             if sig != coordinator.lastSuggestedRouteSignature {
                 coordinator.lastSuggestedRouteSignature = sig
@@ -73,19 +81,9 @@ struct GoogleMapView: UIViewRepresentable {
                 let padding = UIEdgeInsets(top: 72, left: 48, bottom: 200, right: 48)
                 let update = GMSCameraUpdate.fit(bounds, with: padding)
                 mapView.animate(with: update)
-                DispatchQueue.main.async {
-                    cameraTarget = nil
-                }
             }
         } else {
             coordinator.lastSuggestedRouteSignature = nil
-            if let target = cameraTarget {
-                let camera = GMSCameraPosition.camera(withTarget: target, zoom: 15)
-                mapView.animate(to: camera)
-                DispatchQueue.main.async {
-                    cameraTarget = nil
-                }
-            }
         }
     }
 

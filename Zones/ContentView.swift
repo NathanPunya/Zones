@@ -11,6 +11,8 @@ struct ContentView: View {
     @StateObject private var mapModel: MainMapViewModel
     /// One-time center on first GPS fix; ongoing location updates must not keep resetting the camera.
     @State private var hasAppliedInitialMapCenter = false
+    /// Avoids cancelling an in-flight Directions fetch on every GPS tweak (first-launch location churn).
+    @State private var locationRefreshDebounceTask: Task<Void, Never>?
     @AppStorage("measurementUnits") private var measurementUnitsRaw = MeasurementUnits.metric.rawValue
     @AppStorage("routeSurfacePreference") private var routeSurfaceRaw = RouteSurfacePreference.streetsAndSidewalks.rawValue
     @AppStorage("mapDisplayMode") private var mapDisplayModeRaw = MapDisplayMode.standard.rawValue
@@ -68,6 +70,16 @@ struct ContentView: View {
                             suggestedRoutes: mapModel.showAIRoute ? mapModel.suggestedLoops : []
                         )
                         .ignoresSafeArea(edges: [.bottom, .leading, .trailing])
+
+                        VStack {
+                            HStack {
+                                Spacer()
+                                mapRecenterButton
+                            }
+                            Spacer()
+                        }
+                        .padding(.top, 6)
+                        .padding(.trailing, 10)
 
                         VStack(alignment: .leading, spacing: 8) {
                             if !AppConfiguration.hasGoogleMapsKey {
@@ -129,11 +141,6 @@ struct ContentView: View {
                 await health.requestAuthorization()
                 await notifications.requestPermission()
                 notifications.scheduleStreakReminderIfNeeded(streakDays: streaks.currentStreakDays)
-                try? await Task.sleep(for: .milliseconds(500))
-                if mapModel.showAIRoute, let c = runTracker.currentLocation {
-                    let distances = await health.recentRunDistances(days: 14)
-                    mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
-                }
             }
         }
         .onChange(of: runTracker.authorization) { _, status in
@@ -153,9 +160,13 @@ struct ContentView: View {
                 hasAppliedInitialMapCenter = true
             }
             guard mapModel.showAIRoute else { return }
-            Task {
+            locationRefreshDebounceTask?.cancel()
+            locationRefreshDebounceTask = Task {
+                try? await Task.sleep(for: .milliseconds(1600))
+                guard !Task.isCancelled else { return }
+                guard mapModel.showAIRoute, let c = runTracker.currentLocation else { return }
                 let distances = await health.recentRunDistances(days: 14)
-                mapModel.refreshSuggestions(center: new, recentDistances: distances, surfacePreference: routeSurfacePreference)
+                mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
             }
         }
         .onChange(of: routeSurfaceRaw) { _, _ in
@@ -169,7 +180,12 @@ struct ContentView: View {
             guard enabled, let c = runTracker.currentLocation else { return }
             Task {
                 let distances = await health.recentRunDistances(days: 14)
-                mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
+                mapModel.refreshSuggestions(
+                    center: c,
+                    recentDistances: distances,
+                    surfacePreference: routeSurfacePreference,
+                    showsProgress: true
+                )
             }
         }
     }
@@ -226,10 +242,29 @@ struct ContentView: View {
         .accessibilityLabel(mapModel.showAIRoute ? "Hide AI route" : "Show AI route")
     }
 
+    /// Replaces the SDK my-location control (fixed bottom-right); same action, top-right of the map.
+    private var mapRecenterButton: some View {
+        Button {
+            guard let c = runTracker.currentLocation else { return }
+            mapModel.cameraTarget = c
+        } label: {
+            Image(systemName: "location.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.blue)
+                .frame(width: 44, height: 44)
+                .background(.regularMaterial, in: Circle())
+                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+        .disabled(runTracker.currentLocation == nil)
+        .opacity(runTracker.currentLocation == nil ? 0.4 : 1)
+        .accessibilityLabel("Recenter on your location")
+    }
+
     private var streakChip: some View {
         HStack(spacing: 6) {
             Image(systemName: "flame.fill")
-            Text("\(streaks.currentStreakDays)d streak")
+            Text("\(streaks.currentStreakDays) streak")
                 .fontWeight(.semibold)
                 .lineLimit(1)
         }

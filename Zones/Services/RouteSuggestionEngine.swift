@@ -6,7 +6,7 @@ import Foundation
 struct RouteSuggestionEngine {
     /// Slider range for difficulty; maps to loop radius between engine min/max (whole numbers only in UI).
     static let difficultySliderMin = 1.0
-    static let difficultySliderMax = 100.0
+    static let difficultySliderMax = 50.0
     static var difficultySliderRange: ClosedRange<Double> {
         difficultySliderMin...difficultySliderMax
     }
