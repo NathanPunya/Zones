@@ -1,5 +1,20 @@
 import SwiftUI
 import CoreLocation
+import UIKit
+
+/// Retained generator + `prepare()` avoids first-tick lag from creating `UIImpactFeedbackGenerator` on every level step.
+private enum RouteLevelTickHaptics {
+    private static let generator = UIImpactFeedbackGenerator(style: .rigid)
+
+    static func warmUp() {
+        generator.prepare()
+    }
+
+    static func play(intensity: CGFloat = 0.6) {
+        generator.prepare()
+        generator.impactOccurred(intensity: intensity)
+    }
+}
 
 struct ContentView: View {
     @ObservedObject var runTracker: RunTrackingService
@@ -13,6 +28,10 @@ struct ContentView: View {
     @State private var hasAppliedInitialMapCenter = false
     /// Avoids cancelling an in-flight Directions fetch on every GPS tweak (first-launch location churn).
     @State private var locationRefreshDebounceTask: Task<Void, Never>?
+    /// Continuous thumb position for route level; avoids stepped `Slider` tick haptics fighting at 24↔25 (system 32 Hz limit).
+    @State private var routeLevelSliderValue: Double = 4
+    /// Last level we played a tick haptic for (only fires when this integer changes).
+    @State private var routeSliderLastHapticLevel: Int?
     @AppStorage("measurementUnits") private var measurementUnitsRaw = MeasurementUnits.metric.rawValue
     @AppStorage("routeSurfacePreference") private var routeSurfaceRaw = RouteSurfacePreference.streetsAndSidewalks.rawValue
     @AppStorage("mapDisplayMode") private var mapDisplayModeRaw = MapDisplayMode.standard.rawValue
@@ -134,6 +153,9 @@ struct ContentView: View {
         }
         .environment(\.measurementUnits, measurementUnits)
         .onAppear {
+            routeLevelSliderValue = mapModel.desiredDifficulty
+            routeSliderLastHapticLevel = Int(mapModel.desiredDifficulty.rounded())
+            RouteLevelTickHaptics.warmUp()
             mapModel.start()
             runTracker.requestAuthorization()
             motion.start()
@@ -150,7 +172,12 @@ struct ContentView: View {
                 try? await Task.sleep(for: .milliseconds(400))
                 guard let c = runTracker.currentLocation else { return }
                 let distances = await health.recentRunDistances(days: 14)
-                mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
+                mapModel.refreshSuggestions(
+                    center: c,
+                    recentDistances: distances,
+                    surfacePreference: routeSurfacePreference,
+                    showsProgress: false
+                )
             }
         }
         .onChange(of: locationFingerprint) { _, _ in
@@ -166,7 +193,12 @@ struct ContentView: View {
                 guard !Task.isCancelled else { return }
                 guard mapModel.showAIRoute, let c = runTracker.currentLocation else { return }
                 let distances = await health.recentRunDistances(days: 14)
-                mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
+                mapModel.refreshSuggestions(
+                    center: c,
+                    recentDistances: distances,
+                    surfacePreference: routeSurfacePreference,
+                    showsProgress: false
+                )
             }
         }
         .onChange(of: routeSurfaceRaw) { _, _ in
@@ -177,32 +209,23 @@ struct ContentView: View {
             }
         }
         .onChange(of: mapModel.showAIRoute) { _, enabled in
+            if enabled {
+                RouteLevelTickHaptics.warmUp()
+                // Warms HealthKit so the first slider-driven refresh does not pay a cold query on the gesture path.
+                Task { _ = await health.recentRunDistances(days: 14) }
+            }
             guard enabled, let c = runTracker.currentLocation else { return }
+            // Re-showing the route uses cached geometry/insight; only fetch when nothing was generated yet.
+            guard mapModel.suggestedLoops.isEmpty, mapModel.routeInsight == nil else { return }
             Task {
                 let distances = await health.recentRunDistances(days: 14)
-                mapModel.refreshSuggestions(
-                    center: c,
-                    recentDistances: distances,
-                    surfacePreference: routeSurfacePreference,
-                    showsProgress: true
-                )
+                mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
             }
         }
     }
 
-    /// Custom binding so every slider move triggers a route refresh (debounced inside the view model).
-    private var difficultySliderBinding: Binding<Double> {
-        Binding(
-            get: { mapModel.desiredDifficulty },
-            set: { newValue in
-                mapModel.desiredDifficulty = newValue.rounded()
-                guard mapModel.showAIRoute, let c = runTracker.currentLocation else { return }
-                Task {
-                    let distances = await health.recentRunDistances(days: 14)
-                    mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
-                }
-            }
-        )
+    private func playRouteLevelTickHaptic() {
+        RouteLevelTickHaptics.play()
     }
 
     private var locationFingerprint: String {
@@ -342,11 +365,11 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                             Spacer(minLength: 8)
                             VStack(alignment: .trailing, spacing: 2) {
-                                Text("Lv \(Int(mapModel.desiredDifficulty.rounded()))")
+                                Text("Lv \(Int(routeLevelSliderValue.rounded()))")
                                     .font(.caption.weight(.semibold))
                                     .monospacedDigit()
                                     .foregroundStyle(.primary)
-                                Text(RouteSuggestionEngine.tierLabel(forSliderLevel: mapModel.desiredDifficulty))
+                                Text(RouteSuggestionEngine.tierLabel(forSliderLevel: routeLevelSliderValue.rounded()))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
@@ -354,10 +377,29 @@ struct ContentView: View {
                             }
                         }
                         Slider(
-                            value: difficultySliderBinding,
-                            in: RouteSuggestionEngine.difficultySliderRange,
-                            step: 1
-                        )
+                            value: $routeLevelSliderValue,
+                            in: RouteSuggestionEngine.difficultySliderRange
+                        ) { editing in
+                            if !editing {
+                                let r = routeLevelSliderValue.rounded()
+                                routeLevelSliderValue = r
+                            }
+                        }
+                        .onChange(of: routeLevelSliderValue) { _, v in
+                            let level = Int(v.rounded())
+                            if level != routeSliderLastHapticLevel {
+                                routeSliderLastHapticLevel = level
+                                playRouteLevelTickHaptic()
+                            }
+                            let r = v.rounded()
+                            guard r != mapModel.desiredDifficulty else { return }
+                            mapModel.desiredDifficulty = r
+                            guard mapModel.showAIRoute, let c = runTracker.currentLocation else { return }
+                            Task {
+                                let distances = await health.recentRunDistances(days: 14)
+                                mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
+                            }
+                        }
                     }
                     .transition(.opacity.combined(with: .offset(y: 6)))
                 }
@@ -397,14 +439,15 @@ struct ContentView: View {
     }
 
     /// Fetches HealthKit context and refreshes the AI loop. Use `rotateForNewRoute` to get a different path at the same level.
-    private func scheduleSuggestedRouteRefresh(rotateForNewRoute: Bool = false) async {
+    private func scheduleSuggestedRouteRefresh(rotateForNewRoute: Bool = false, showsProgress: Bool = true) async {
         guard mapModel.showAIRoute, let center = runTracker.currentLocation else { return }
         let distances = await health.recentRunDistances(days: 14)
         mapModel.refreshSuggestions(
             center: center,
             recentDistances: distances,
             surfacePreference: routeSurfacePreference,
-            rotateForNewRoute: rotateForNewRoute
+            rotateForNewRoute: rotateForNewRoute,
+            showsProgress: showsProgress
         )
     }
 

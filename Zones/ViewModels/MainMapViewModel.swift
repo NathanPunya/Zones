@@ -9,8 +9,8 @@ final class MainMapViewModel: ObservableObject {
     @Published var leaderboard: [LeaderboardEntry] = []
     @Published var suggestedLoops: [[CLLocationCoordinate2D]] = []
     @Published var suggestedRouteDistanceMeters: Double = 0
-    /// Default ≈ same relative position as 2.5 on the old 0.5…6 slider, on 1…50.
-    @Published var desiredDifficulty: Double = 5
+    /// Default ≈ former level 5 on the old 1…50 scale → display **4** on 1…25 (see `RouteSuggestionEngine`).
+    @Published var desiredDifficulty: Double = 4
     /// When false, the green AI route is hidden on the map (data stays cached).
     @Published var showAIRoute: Bool = false
 
@@ -56,36 +56,37 @@ final class MainMapViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// - Parameters:
-    ///   - rotateForNewRoute: If true, nudges anchor orientation so Directions can return a different loop without changing level.
-    ///   - showsProgress: If true, the UI may show a loading state until this fetch finishes. Recalculations (slider, location, etc.) should pass false so the map keeps the previous route until the new one is ready.
+    /// - Parameter rotateForNewRoute: If true, nudges anchor orientation so Directions can return a different loop without changing level.
+    /// - Parameter showsProgress: When false (e.g. GPS/auth-driven refresh), the route updates silently without loading UI.
     func refreshSuggestions(
         center: CLLocationCoordinate2D?,
         recentDistances: [Double],
         surfacePreference: RouteSurfacePreference,
         rotateForNewRoute: Bool = false,
-        showsProgress: Bool = false
+        showsProgress: Bool = true
     ) {
         routeFetchTask?.cancel()
         guard let center else {
-            isRefreshingSuggestedRoute = false
+            if showsProgress {
+                isRefreshingSuggestedRoute = false
+            }
             return
         }
 
         refreshEpoch += 1
         let epoch = refreshEpoch
-        let showProgressUI = showsProgress
+        let affectsLoadingUI = showsProgress
 
         if !rotateForNewRoute {
             routeOrientationBiasRadians = 0
         }
 
-        if showsProgress {
+        if affectsLoadingUI {
             isRefreshingSuggestedRoute = true
+            bannerMessage = nil
         } else {
             isRefreshingSuggestedRoute = false
         }
-        bannerMessage = nil
 
         routeFetchTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -116,10 +117,12 @@ final class MainMapViewModel: ObservableObject {
                     self.suggestedLoops = []
                     self.suggestedRouteDistanceMeters = 0
                     self.routeInsight = nil
-                    if showProgressUI {
+                    if affectsLoadingUI {
                         self.isRefreshingSuggestedRoute = false
                     }
-                    self.bannerMessage = "No suggested loop here — try moving the map or adjusting the slider."
+                    if affectsLoadingUI {
+                        self.bannerMessage = "No suggested loop here — try moving the map or adjusting the slider."
+                    }
                     return
                 }
                 guard epoch == self.refreshEpoch else { return }
@@ -132,7 +135,7 @@ final class MainMapViewModel: ObservableObject {
                    uniquenessAttempt < maxUniquenessAttempts - 1 {
                     uniquenessAttempt += 1
                     if Task.isCancelled {
-                        if epoch == self.refreshEpoch, showProgressUI {
+                        if epoch == self.refreshEpoch, affectsLoadingUI {
                             self.isRefreshingSuggestedRoute = false
                         }
                         return
@@ -140,12 +143,12 @@ final class MainMapViewModel: ObservableObject {
                     continue
                 }
 
-                if let previous = self.lastDisplayedRouteSignature, sig == previous {
+                if let previous = self.lastDisplayedRouteSignature, sig == previous, affectsLoadingUI {
                     self.bannerMessage = "Couldn’t find a different route — try moving the map or changing level."
                 }
 
                 guard !Task.isCancelled else {
-                    if epoch == self.refreshEpoch, showProgressUI {
+                    if epoch == self.refreshEpoch, affectsLoadingUI {
                         self.isRefreshingSuggestedRoute = false
                     }
                     return
@@ -165,7 +168,7 @@ final class MainMapViewModel: ObservableObject {
                     pathKind: pathKind,
                     enclosedAreaSquareMeters: areaM2
                 )
-                if showProgressUI {
+                if affectsLoadingUI {
                     self.isRefreshingSuggestedRoute = false
                 }
                 return
