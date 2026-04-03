@@ -86,9 +86,10 @@ final class MainMapViewModel: ObservableObject {
         if affectsLoadingUI {
             isRefreshingSuggestedRoute = true
             bannerMessage = nil
-        } else {
-            isRefreshingSuggestedRoute = false
         }
+        // Do not set `isRefreshingSuggestedRoute = false` when `showsProgress` is false: a GPS/auth
+        // refresh would clear “Building route…” while the async work is still running or gets cancelled,
+        // leaving no insight and no spinner.
 
         routeFetchTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -119,9 +120,7 @@ final class MainMapViewModel: ObservableObject {
                     self.suggestedLoops = []
                     self.suggestedRouteDistanceMeters = 0
                     self.routeInsight = nil
-                    if affectsLoadingUI {
-                        self.isRefreshingSuggestedRoute = false
-                    }
+                    self.isRefreshingSuggestedRoute = false
                     if affectsLoadingUI {
                         self.bannerMessage = "No suggested loop here — try moving the map or adjusting the slider."
                     }
@@ -137,7 +136,7 @@ final class MainMapViewModel: ObservableObject {
                    uniquenessAttempt < maxUniquenessAttempts - 1 {
                     uniquenessAttempt += 1
                     if Task.isCancelled {
-                        if epoch == self.refreshEpoch, affectsLoadingUI {
+                        if epoch == self.refreshEpoch {
                             self.isRefreshingSuggestedRoute = false
                         }
                         return
@@ -150,7 +149,7 @@ final class MainMapViewModel: ObservableObject {
                 }
 
                 guard !Task.isCancelled else {
-                    if epoch == self.refreshEpoch, affectsLoadingUI {
+                    if epoch == self.refreshEpoch {
                         self.isRefreshingSuggestedRoute = false
                     }
                     return
@@ -170,9 +169,7 @@ final class MainMapViewModel: ObservableObject {
                     pathKind: pathKind,
                     enclosedAreaSquareMeters: areaM2
                 )
-                if affectsLoadingUI {
-                    self.isRefreshingSuggestedRoute = false
-                }
+                self.isRefreshingSuggestedRoute = false
                 return
             }
         }
