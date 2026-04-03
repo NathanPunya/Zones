@@ -167,6 +167,12 @@ struct ContentView: View {
                 await notifications.requestPermission()
                 notifications.scheduleStreakReminderIfNeeded(streakDays: streaks.currentStreakDays)
             }
+            // `onChange(of: locationFingerprint)` does not run when a GPS fix is already present on first
+            // layout, so route gen would stay empty until the user moved the slider or tapped New route.
+            Task {
+                try? await Task.sleep(for: .milliseconds(400))
+                await scheduleSuggestedRouteRefresh(showsProgress: true)
+            }
         }
         .onChange(of: runTracker.authorization) { _, status in
             guard status == .authorizedWhenInUse || status == .authorizedAlways else { return }
@@ -214,15 +220,12 @@ struct ContentView: View {
         .onChange(of: mapModel.showAIRoute) { _, enabled in
             if enabled {
                 RouteLevelTickHaptics.warmUp()
-                // Warms HealthKit so the first slider-driven refresh does not pay a cold query on the gesture path.
                 Task { _ = await health.recentRunDistances(days: 14) }
             }
-            guard enabled, let c = runTracker.currentLocation else { return }
-            // Re-showing the route uses cached geometry/insight; only fetch when nothing was generated yet.
-            guard mapModel.suggestedLoops.isEmpty, mapModel.routeInsight == nil else { return }
+            guard enabled else { return }
             Task {
-                let distances = await health.recentRunDistances(days: 14)
-                mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
+                try? await Task.sleep(for: .milliseconds(50))
+                await scheduleSuggestedRouteRefresh(showsProgress: true)
             }
         }
     }
