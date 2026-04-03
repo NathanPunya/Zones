@@ -35,6 +35,8 @@
 		BF0025 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0028 /* SettingsView.swift */; };
 		BF0026 /* RouteSurfacePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0029 /* RouteSurfacePreference.swift */; };
 		BF0027 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FR0030 /* GoogleService-Info.plist */; };
+		BF0029 /* AppDiagnosticsLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0032 /* AppDiagnosticsLogStore.swift */; };
+		BF0030 /* AppLogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0033 /* AppLogsView.swift */; };
 		F47CF4BA2F7DE603001258CC /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0001 /* GoogleMaps */; };
 		F47CF4BB2F7DE603001258CC /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0002 /* FirebaseCore */; };
 		F47CF4BC2F7DE603001258CC /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0003 /* FirebaseFirestore */; };
@@ -72,6 +74,8 @@
 		FR0028 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FR0029 /* RouteSurfacePreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteSurfacePreference.swift; sourceTree = "<group>"; };
 		FR0030 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		FR0032 /* AppDiagnosticsLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDiagnosticsLogStore.swift; sourceTree = "<group>"; };
+		FR0033 /* AppLogsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -158,6 +162,7 @@
 				FR0025 /* RoutePathRefinement.swift */,
 				FR0013 /* StreakService.swift */,
 				FR0014 /* TerritoryNotificationService.swift */,
+				FR0032 /* AppDiagnosticsLogStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -169,6 +174,7 @@
 				FR0016 /* LeaderboardView.swift */,
 				FR0024 /* RouteInsightCard.swift */,
 				FR0028 /* SettingsView.swift */,
+				FR0033 /* AppLogsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -319,6 +325,8 @@
 				BF0024 /* MeasurementUnits.swift in Sources */,
 				BF0025 /* SettingsView.swift in Sources */,
 				BF0026 /* RouteSurfacePreference.swift in Sources */,
+				BF0029 /* AppDiagnosticsLogStore.swift in Sources */,
+				BF0030 /* AppLogsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

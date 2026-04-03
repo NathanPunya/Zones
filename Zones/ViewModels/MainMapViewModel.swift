@@ -12,7 +12,7 @@ final class MainMapViewModel: ObservableObject {
     /// Default ≈ former level 5 on the old 1…50 scale → display **4** on 1…25 (see `RouteSuggestionEngine`).
     @Published var desiredDifficulty: Double = 4
     /// When false, the green AI route is hidden on the map (data stays cached).
-    @Published var showAIRoute: Bool = false
+    @Published var showAIRoute: Bool = true
 
     /// Card content for the current suggestion (target radius vs street distance are both explained in the UI).
     @Published var routeInsight: RouteInsight?
@@ -21,6 +21,7 @@ final class MainMapViewModel: ObservableObject {
     @Published var bannerMessage: String?
 
     private let sync: TerritorySyncing
+    private let logStore: AppDiagnosticsLogStore
     private let routeEngine = RouteSuggestionEngine()
     private var cancellables = Set<AnyCancellable>()
     private var routeFetchTask: Task<Void, Never>?
@@ -31,8 +32,9 @@ final class MainMapViewModel: ObservableObject {
     /// Incremented on each `refreshSuggestions` with a valid center so only the latest in-flight fetch may finish UI/loading.
     private var refreshEpoch: UInt64 = 0
 
-    init(sync: TerritorySyncing) {
+    init(sync: TerritorySyncing, logStore: AppDiagnosticsLogStore) {
         self.sync = sync
+        self.logStore = logStore
     }
 
     deinit {
@@ -234,7 +236,9 @@ final class MainMapViewModel: ObservableObject {
                 path = await RoutePathRefinement.refinedByShorteningSpurs(path)
                 loop = path
             } catch {
+                pathKind = .circlePreview
                 loop = best.fallbackDense
+                logStore.logGoogleDirectionsFallback(GoogleDirectionsService.userFacingHint(for: error))
             }
         } else {
             loop = best.fallbackDense

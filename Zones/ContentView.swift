@@ -22,6 +22,7 @@ struct ContentView: View {
     @ObservedObject var health: HealthKitService
     @ObservedObject var streaks: StreakService
     @ObservedObject var notifications: TerritoryNotificationService
+    @ObservedObject var diagnosticsLog: AppDiagnosticsLogStore
 
     @StateObject private var mapModel: MainMapViewModel
     /// One-time center on first GPS fix; ongoing location updates must not keep resetting the camera.
@@ -63,14 +64,16 @@ struct ContentView: View {
         motion: CoreMotionService,
         health: HealthKitService,
         streaks: StreakService,
-        notifications: TerritoryNotificationService
+        notifications: TerritoryNotificationService,
+        diagnosticsLog: AppDiagnosticsLogStore
     ) {
         self.runTracker = runTracker
         self.motion = motion
         self.health = health
         self.streaks = streaks
         self.notifications = notifications
-        _mapModel = StateObject(wrappedValue: MainMapViewModel(sync: TerritoryServiceFactory.makeDefault()))
+        self.diagnosticsLog = diagnosticsLog
+        _mapModel = StateObject(wrappedValue: MainMapViewModel(sync: TerritoryServiceFactory.makeDefault(), logStore: diagnosticsLog))
     }
 
     var body: some View {
@@ -145,7 +148,7 @@ struct ContentView: View {
             }
 
             NavigationStack {
-                SettingsView()
+                SettingsView(logStore: diagnosticsLog)
             }
             .tabItem {
                 Label("Settings", systemImage: "gearshape.fill")
@@ -478,7 +481,8 @@ struct ContentView: View {
         motion: CoreMotionService(),
         health: HealthKitService(),
         streaks: StreakService(),
-        notifications: TerritoryNotificationService()
+        notifications: TerritoryNotificationService(),
+        diagnosticsLog: AppDiagnosticsLogStore()
     )
     .environment(\.measurementUnits, .metric)
 }
