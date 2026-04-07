@@ -12,7 +12,7 @@ final class MainMapViewModel: ObservableObject {
     /// Default ≈ former level 5 on the old 1…50 scale → display **4** on 1…25 (see `RouteSuggestionEngine`).
     @Published var desiredDifficulty: Double = 4
     /// When false, the green AI route is hidden on the map (data stays cached).
-    @Published var showAIRoute: Bool = true
+    @Published var showAIRoute: Bool = false
 
     /// Card content for the current suggestion (target radius vs street distance are both explained in the UI).
     @Published var routeInsight: RouteInsight?
