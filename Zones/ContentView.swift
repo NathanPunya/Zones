@@ -105,14 +105,14 @@ struct ContentView: View {
 
                         VStack(alignment: .leading, spacing: 8) {
                             if !AppConfiguration.hasGoogleMapsKey {
-                                Text("Add GOOGLE_MAPS_API_KEY to a .env file at the project root, then build.")
+                                Text("GOOGLE_MAPS_API_KEY missing")
                                     .font(.caption)
                                     .padding(8)
                                     .background(.thinMaterial)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                             }
                             if !AppConfiguration.hasFirebasePlist {
-                                Text("Demo mode: add GoogleService-Info.plist to sync with Firestore.")
+                                Text("GoogleService-Info.plist missing")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 4)

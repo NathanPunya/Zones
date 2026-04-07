@@ -3,6 +3,7 @@ import Foundation
 import GoogleMaps
 
 /// Snaps a candidate loop to walkable paths using the Google Directions API (same API key as Maps SDK; enable “Directions API” in Google Cloud).
+/// Uses `avoid=ferries` so routes don’t use passenger ferries / boat legs.
 enum GoogleDirectionsService {
     enum DirectionsError: Error {
         case invalidResponse
@@ -123,13 +124,11 @@ enum GoogleDirectionsService {
         let waypointParam = optimizeWaypoints ? ("optimize:true|" + coords) : coords
 
         var components = URLComponents(string: "https://maps.googleapis.com/maps/api/directions/json")!
-        components.queryItems = [
+        components.queryItems = walkingDirectionsQueryItems(key: key, extra: [
             URLQueryItem(name: "origin", value: coordinateString(origin)),
             URLQueryItem(name: "destination", value: coordinateString(destination)),
-            URLQueryItem(name: "waypoints", value: waypointParam),
-            URLQueryItem(name: "mode", value: "walking"),
-            URLQueryItem(name: "key", value: key)
-        ]
+            URLQueryItem(name: "waypoints", value: waypointParam)
+        ])
 
         guard let url = components.url else { throw DirectionsError.invalidResponse }
 
@@ -154,6 +153,15 @@ enum GoogleDirectionsService {
         return path
     }
 
+    /// Query items shared by walking Directions calls: mode, avoid ferries, API key.
+    private static func walkingDirectionsQueryItems(key: String, extra: [URLQueryItem]) -> [URLQueryItem] {
+        extra + [
+            URLQueryItem(name: "mode", value: "walking"),
+            URLQueryItem(name: "avoid", value: "ferries"),
+            URLQueryItem(name: "key", value: key)
+        ]
+    }
+
     /// Single walking leg between two points (used to replace redundant out-and-back spurs on a larger loop).
     static func fetchWalkingSegment(from origin: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D) async throws -> [CLLocationCoordinate2D] {
         let key = AppConfiguration.googleMapsAPIKey
@@ -162,12 +170,10 @@ enum GoogleDirectionsService {
         }
 
         var components = URLComponents(string: "https://maps.googleapis.com/maps/api/directions/json")!
-        components.queryItems = [
+        components.queryItems = walkingDirectionsQueryItems(key: key, extra: [
             URLQueryItem(name: "origin", value: coordinateString(origin)),
-            URLQueryItem(name: "destination", value: coordinateString(destination)),
-            URLQueryItem(name: "mode", value: "walking"),
-            URLQueryItem(name: "key", value: key)
-        ]
+            URLQueryItem(name: "destination", value: coordinateString(destination))
+        ])
 
         guard let url = components.url else { throw DirectionsError.invalidResponse }
 

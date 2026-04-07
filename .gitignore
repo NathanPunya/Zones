@@ -4,3 +4,4 @@ xcuserdata/
 .DS_Store
 GoogleService-Info.plist
 Zones/Generated/EnvSecrets.swift
+.inspiration/**
