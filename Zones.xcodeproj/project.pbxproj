@@ -43,6 +43,8 @@
 		BF0042 /* RunTrackingLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0041 /* RunTrackingLiveActivity.swift */; };
 		BF0043 /* ZonesLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0042 /* ZonesLiveActivityBundle.swift */; };
 		BF0044 /* RunLiveActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0043 /* RunLiveActivityCoordinator.swift */; };
+		BF0046 /* PostRunSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0048 /* PostRunSnapshot.swift */; };
+		BF0047 /* PostRunCaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0049 /* PostRunCaptureSheet.swift */; };
 		BF0050 /* ZonesLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FR0050 /* ZonesLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F47CF4BA2F7DE603001258CC /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0001 /* GoogleMaps */; };
 		F47CF4BB2F7DE603001258CC /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0002 /* FirebaseCore */; };
@@ -90,6 +92,8 @@
 		FR0043 /* RunLiveActivityCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLiveActivityCoordinator.swift; sourceTree = "<group>"; };
 		FR0045 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FR0050 /* ZonesLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ZonesLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FR0048 /* PostRunSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRunSnapshot.swift; sourceTree = "<group>"; };
+		FR0049 /* PostRunCaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRunCaptureSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -211,6 +215,7 @@
 			children = (
 				FR0006 /* TerritoryModels.swift */,
 				FR0023 /* RouteInsight.swift */,
+				FR0048 /* PostRunSnapshot.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -243,6 +248,7 @@
 				FR0028 /* SettingsView.swift */,
 				FR0033 /* AppLogsView.swift */,
 				FR0034 /* AppleMapView.swift */,
+				FR0049 /* PostRunCaptureSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -438,6 +444,8 @@
 				BF0031 /* AppleMapView.swift in Sources */,
 				BF0040 /* RunTrackingActivityAttributes.swift in Sources */,
 				BF0044 /* RunLiveActivityCoordinator.swift in Sources */,
+				BF0046 /* PostRunSnapshot.swift in Sources */,
+				BF0047 /* PostRunCaptureSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

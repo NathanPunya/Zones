@@ -40,6 +40,8 @@ struct ContentView: View {
     @State private var routeLevelSliderValue: Double = 4
     /// Last level we played a tick haptic for (only fires when this integer changes).
     @State private var routeSliderLastHapticLevel: Int?
+    /// After a qualifying run, shows stats and optional one-time zone capture.
+    @State private var postRunSnapshot: PostRunSnapshot?
     @AppStorage("measurementUnits") private var measurementUnitsRaw = MeasurementUnits.metric.rawValue
     @AppStorage("routeSurfacePreference") private var routeSurfaceRaw = RouteSurfacePreference.streetsAndSidewalks.rawValue
     @AppStorage("mapDisplayMode") private var mapDisplayModeRaw = MapDisplayMode.standard.rawValue
@@ -183,6 +185,19 @@ struct ContentView: View {
             }
         }
         .environment(\.measurementUnits, measurementUnits)
+        .sheet(item: $postRunSnapshot, onDismiss: {
+            runTracker.clearCompletedRunDisplay()
+        }) { snapshot in
+            PostRunCaptureSheet(
+                snapshot: snapshot,
+                onCapture: {
+                    Task { await confirmZoneCapture(snapshot) }
+                },
+                onSkip: {
+                    postRunSnapshot = nil
+                }
+            )
+        }
         .onAppear {
             routeLevelSliderValue = mapModel.desiredDifficulty
             routeSliderLastHapticLevel = Int(mapModel.desiredDifficulty.rounded())
@@ -455,20 +470,12 @@ struct ContentView: View {
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
 
-            HStack(spacing: 12) {
-                Button(action: toggleRun) {
-                    Label(runTracker.isRecording ? "Stop" : "Start run", systemImage: runTracker.isRecording ? "stop.fill" : "record.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(runTracker.isRecording ? .red : .orange)
-
-                Button("Claim zone") {
-                    Task { await claimZone() }
-                }
-                .buttonStyle(.bordered)
-                .disabled(!runTracker.loopClosed || runTracker.runPoints.count < 4)
+            Button(action: toggleRun) {
+                Label(runTracker.isRecording ? "Stop" : "Start run", systemImage: runTracker.isRecording ? "stop.fill" : "record.circle")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .tint(runTracker.isRecording ? .red : .orange)
         }
         .animation(Self.routeGenToggleAnimation, value: mapModel.showAIRoute)
         .padding()
@@ -490,22 +497,27 @@ struct ContentView: View {
 
     private func toggleRun() {
         if runTracker.isRecording {
+            let endedAt = Date()
+            let snapshot = PostRunSnapshot(runTracker: runTracker, endedAt: endedAt)
             runTracker.stopRecording()
             motion.stop()
+            if snapshot.eligibleForZoneCapture {
+                postRunSnapshot = snapshot
+            }
         } else {
             runTracker.startRecording()
             motion.startPedometer(from: Date())
         }
     }
 
-    private func claimZone() async {
-        guard let area = runTracker.enclosedAreaSquareMeters, runTracker.loopClosed else { return }
-        await mapModel.claimLoop(points: runTracker.runPoints, area: area)
+    private func confirmZoneCapture(_ snapshot: PostRunSnapshot) async {
+        await mapModel.claimLoop(points: snapshot.polygon, area: snapshot.areaSquareMeters)
         streaks.registerActivity()
-        notifications.notifyZoneClaimed(area: area)
+        notifications.notifyZoneClaimed(area: snapshot.areaSquareMeters)
         notifications.scheduleStreakReminderIfNeeded(streakDays: streaks.currentStreakDays)
         let start = Date().addingTimeInterval(-120)
-        await health.saveZoneRun(distanceMeters: runTracker.distanceMeters, start: start, end: Date())
+        await health.saveZoneRun(distanceMeters: snapshot.distanceMeters, start: start, end: Date())
+        postRunSnapshot = nil
     }
 }
 

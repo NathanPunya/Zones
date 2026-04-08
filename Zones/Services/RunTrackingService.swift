@@ -12,6 +12,8 @@ final class RunTrackingService: NSObject, ObservableObject {
     @Published private(set) var distanceMeters: Double = 0
     @Published private(set) var loopClosed = false
     @Published private(set) var enclosedAreaSquareMeters: Double?
+    /// Set when a run starts; used for post-run overview (cleared when the run stops).
+    @Published private(set) var runStartedAt: Date?
 
     private let manager = CLLocationManager()
     private var lastLocation: CLLocation?
@@ -60,6 +62,7 @@ final class RunTrackingService: NSObject, ObservableObject {
         enclosedAreaSquareMeters = nil
         lastLocation = nil
         lastSnapshotSave = .distantPast
+        runStartedAt = Date()
         isRecording = true
         startLocationUpdatesIfAuthorized()
         persistRecordingSnapshotIfNeeded()
@@ -67,7 +70,17 @@ final class RunTrackingService: NSObject, ObservableObject {
 
     func stopRecording() {
         isRecording = false
+        runStartedAt = nil
         clearRecordingSnapshot()
+    }
+
+    /// Clears the finished path from the map after the user has seen the post-run sheet or starts a new run.
+    func clearCompletedRunDisplay() {
+        runPoints.removeAll()
+        distanceMeters = 0
+        loopClosed = false
+        enclosedAreaSquareMeters = nil
+        lastLocation = nil
     }
 
     private func appendCoordinate(_ coordinate: CLLocationCoordinate2D) {
@@ -140,6 +153,7 @@ final class RunTrackingService: NSObject, ObservableObject {
             lastLocation = nil
         }
         isRecording = true
+        runStartedAt = runStartedAt ?? Date()
         let closed = ZoneGeometry.isClosedLoop(points: runPoints)
         loopClosed = closed
         enclosedAreaSquareMeters = closed ? ZoneGeometry.areaSquareMeters(polygon: runPoints) : nil
