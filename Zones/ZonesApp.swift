@@ -9,6 +9,7 @@ struct ZonesApp: App {
     @StateObject private var health = HealthKitService()
     @StateObject private var streaks = StreakService()
     @StateObject private var notifications = TerritoryNotificationService()
+    @StateObject private var diagnosticsLog = AppDiagnosticsLogStore()
 
     var body: some Scene {
         WindowGroup {
@@ -17,7 +18,8 @@ struct ZonesApp: App {
                 motion: motion,
                 health: health,
                 streaks: streaks,
-                notifications: notifications
+                notifications: notifications,
+                diagnosticsLog: diagnosticsLog
             )
         }
     }

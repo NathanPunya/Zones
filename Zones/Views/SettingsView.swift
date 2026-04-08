@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @ObservedObject var logStore: AppDiagnosticsLogStore
+
     @AppStorage("measurementUnits") private var unitsRaw = MeasurementUnits.metric.rawValue
     @AppStorage("routeSurfacePreference") private var routeSurfaceRaw = RouteSurfacePreference.streetsAndSidewalks.rawValue
     @AppStorage("mapDisplayMode") private var mapDisplayModeRaw = MapDisplayMode.standard.rawValue
@@ -29,6 +31,30 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                NavigationLink {
+                    AppLogsView(logStore: logStore)
+                } label: {
+                    HStack {
+                        Label("Logs", systemImage: "doc.text.magnifyingglass")
+                        Spacer(minLength: 8)
+                        if logStore.unseenEntryCount > 0 {
+                            Text("\(logStore.unseenEntryCount)")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(Color.red))
+                        }
+                    }
+                }
+            } header: {
+                Text("Diagnostics")
+            } footer: {
+                Text("Google Directions and routing messages are saved here when something goes wrong.")
+                    .font(.caption)
+            }
+
             Section {
                 Picker("Map type", selection: mapDisplayModeBinding) {
                     ForEach(MapDisplayMode.allCases) { mode in
@@ -80,6 +106,15 @@ struct SettingsView: View {
                 )
                 .font(.caption)
             }
+
+            Section {
+                EmptyView()
+            } footer: {
+                Text(AppReleaseInfo.settingsFooterLine)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
@@ -88,6 +123,6 @@ struct SettingsView: View {
 
 #Preview {
     NavigationStack {
-        SettingsView()
+        SettingsView(logStore: AppDiagnosticsLogStore())
     }
 }

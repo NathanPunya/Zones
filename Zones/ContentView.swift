@@ -22,6 +22,7 @@ struct ContentView: View {
     @ObservedObject var health: HealthKitService
     @ObservedObject var streaks: StreakService
     @ObservedObject var notifications: TerritoryNotificationService
+    @ObservedObject var diagnosticsLog: AppDiagnosticsLogStore
 
     @StateObject private var mapModel: MainMapViewModel
     /// One-time center on first GPS fix; ongoing location updates must not keep resetting the camera.
@@ -63,14 +64,16 @@ struct ContentView: View {
         motion: CoreMotionService,
         health: HealthKitService,
         streaks: StreakService,
-        notifications: TerritoryNotificationService
+        notifications: TerritoryNotificationService,
+        diagnosticsLog: AppDiagnosticsLogStore
     ) {
         self.runTracker = runTracker
         self.motion = motion
         self.health = health
         self.streaks = streaks
         self.notifications = notifications
-        _mapModel = StateObject(wrappedValue: MainMapViewModel(sync: TerritoryServiceFactory.makeDefault()))
+        self.diagnosticsLog = diagnosticsLog
+        _mapModel = StateObject(wrappedValue: MainMapViewModel(sync: TerritoryServiceFactory.makeDefault(), logStore: diagnosticsLog))
     }
 
     var body: some View {
@@ -86,7 +89,8 @@ struct ContentView: View {
                             trafficEnabled: mapTrafficEnabled,
                             routePoints: runTracker.runPoints,
                             zonePolygons: mapModel.zones,
-                            suggestedRoutes: mapModel.showAIRoute ? mapModel.suggestedLoops : []
+                            suggestedRoutes: mapModel.showAIRoute ? mapModel.suggestedLoops : [],
+                            routePanelBottomInset: mapModel.showAIRoute ? 268 : 0
                         )
                         .ignoresSafeArea(edges: [.bottom, .leading, .trailing])
 
@@ -102,14 +106,14 @@ struct ContentView: View {
 
                         VStack(alignment: .leading, spacing: 8) {
                             if !AppConfiguration.hasGoogleMapsKey {
-                                Text("Add GOOGLE_MAPS_API_KEY to a .env file at the project root, then build.")
+                                Text("GOOGLE_MAPS_API_KEY missing")
                                     .font(.caption)
                                     .padding(8)
                                     .background(.thinMaterial)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                             }
                             if !AppConfiguration.hasFirebasePlist {
-                                Text("Demo mode: add GoogleService-Info.plist to sync with Firestore.")
+                                Text("GoogleService-Info.plist missing")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 4)
@@ -145,7 +149,7 @@ struct ContentView: View {
             }
 
             NavigationStack {
-                SettingsView()
+                SettingsView(logStore: diagnosticsLog)
             }
             .tabItem {
                 Label("Settings", systemImage: "gearshape.fill")
@@ -163,6 +167,12 @@ struct ContentView: View {
                 await health.requestAuthorization()
                 await notifications.requestPermission()
                 notifications.scheduleStreakReminderIfNeeded(streakDays: streaks.currentStreakDays)
+            }
+            // `onChange(of: locationFingerprint)` does not run when a GPS fix is already present on first
+            // layout, so route gen would stay empty until the user moved the slider or tapped New route.
+            Task {
+                try? await Task.sleep(for: .milliseconds(400))
+                await scheduleSuggestedRouteRefresh(showsProgress: true)
             }
         }
         .onChange(of: runTracker.authorization) { _, status in
@@ -211,15 +221,12 @@ struct ContentView: View {
         .onChange(of: mapModel.showAIRoute) { _, enabled in
             if enabled {
                 RouteLevelTickHaptics.warmUp()
-                // Warms HealthKit so the first slider-driven refresh does not pay a cold query on the gesture path.
                 Task { _ = await health.recentRunDistances(days: 14) }
             }
-            guard enabled, let c = runTracker.currentLocation else { return }
-            // Re-showing the route uses cached geometry/insight; only fetch when nothing was generated yet.
-            guard mapModel.suggestedLoops.isEmpty, mapModel.routeInsight == nil else { return }
+            guard enabled else { return }
             Task {
-                let distances = await health.recentRunDistances(days: 14)
-                mapModel.refreshSuggestions(center: c, recentDistances: distances, surfacePreference: routeSurfacePreference)
+                try? await Task.sleep(for: .milliseconds(50))
+                await scheduleSuggestedRouteRefresh(showsProgress: true)
             }
         }
     }
@@ -385,6 +392,7 @@ struct ContentView: View {
                                 routeLevelSliderValue = r
                             }
                         }
+                        .padding(.horizontal, 20)
                         .onChange(of: routeLevelSliderValue) { _, v in
                             let level = Int(v.rounded())
                             if level != routeSliderLastHapticLevel {
@@ -478,7 +486,8 @@ struct ContentView: View {
         motion: CoreMotionService(),
         health: HealthKitService(),
         streaks: StreakService(),
-        notifications: TerritoryNotificationService()
+        notifications: TerritoryNotificationService(),
+        diagnosticsLog: AppDiagnosticsLogStore()
     )
     .environment(\.measurementUnits, .metric)
 }

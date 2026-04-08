@@ -1,6 +1,7 @@
 import Combine
 import CoreLocation
 import Foundation
+import UIKit
 
 @MainActor
 final class RunTrackingService: NSObject, ObservableObject {
@@ -15,6 +16,8 @@ final class RunTrackingService: NSObject, ObservableObject {
     private let manager = CLLocationManager()
     private var lastLocation: CLLocation?
 
+    private var lastSnapshotSave = Date.distantPast
+
     override init() {
         super.init()
         manager.delegate = self
@@ -22,7 +25,17 @@ final class RunTrackingService: NSObject, ObservableObject {
         manager.activityType = .fitness
         manager.distanceFilter = 5
         authorization = manager.authorizationStatus
+        restorePersistedSessionIfNeeded()
         startLocationUpdatesIfAuthorized()
+        _ = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.persistRecordingSnapshotIfNeeded()
+            }
+        }
     }
 
     func requestAuthorization() {
@@ -40,18 +53,21 @@ final class RunTrackingService: NSObject, ObservableObject {
     }
 
     func startRecording() {
+        clearRecordingSnapshot()
         runPoints.removeAll()
         distanceMeters = 0
         loopClosed = false
         enclosedAreaSquareMeters = nil
         lastLocation = nil
+        lastSnapshotSave = .distantPast
         isRecording = true
         startLocationUpdatesIfAuthorized()
+        persistRecordingSnapshotIfNeeded()
     }
 
     func stopRecording() {
         isRecording = false
-        // Keep location updates for map + suggested route; recording path is no longer appended.
+        clearRecordingSnapshot()
     }
 
     private func appendCoordinate(_ coordinate: CLLocationCoordinate2D) {
@@ -69,7 +85,80 @@ final class RunTrackingService: NSObject, ObservableObject {
         } else {
             enclosedAreaSquareMeters = nil
         }
+
+        maybePersistAfterAppend()
     }
+
+    private func maybePersistAfterAppend() {
+        guard isRecording else { return }
+        let n = runPoints.count
+        let now = Date()
+        if n <= 1 || n % 4 == 0 || now.timeIntervalSince(lastSnapshotSave) >= 2.0 {
+            persistRecordingSnapshotIfNeeded()
+            lastSnapshotSave = now
+        }
+    }
+
+    private func persistRecordingSnapshotIfNeeded() {
+        guard isRecording else { return }
+        let snapshot = PersistedRunSession(
+            active: true,
+            distanceMeters: distanceMeters,
+            lastLatitude: lastLocation?.coordinate.latitude,
+            lastLongitude: lastLocation?.coordinate.longitude,
+            points: runPoints.map { [$0.latitude, $0.longitude] }
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: Self.persistenceKey)
+    }
+
+    private func clearRecordingSnapshot() {
+        UserDefaults.standard.removeObject(forKey: Self.persistenceKey)
+    }
+
+    private func restorePersistedSessionIfNeeded() {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" { return }
+        #endif
+        guard let data = UserDefaults.standard.data(forKey: Self.persistenceKey) else { return }
+        guard let session = try? JSONDecoder().decode(PersistedRunSession.self, from: data) else {
+            UserDefaults.standard.removeObject(forKey: Self.persistenceKey)
+            return
+        }
+        guard session.active else {
+            clearRecordingSnapshot()
+            return
+        }
+
+        runPoints = session.points.map { CLLocationCoordinate2D(latitude: $0[0], longitude: $0[1]) }
+        distanceMeters = session.distanceMeters
+        if let la = session.lastLatitude, let lo = session.lastLongitude {
+            lastLocation = CLLocation(latitude: la, longitude: lo)
+        } else if let last = runPoints.last {
+            lastLocation = CLLocation(latitude: last.latitude, longitude: last.longitude)
+        } else {
+            lastLocation = nil
+        }
+        isRecording = true
+        let closed = ZoneGeometry.isClosedLoop(points: runPoints)
+        loopClosed = closed
+        enclosedAreaSquareMeters = closed ? ZoneGeometry.areaSquareMeters(polygon: runPoints) : nil
+        lastSnapshotSave = Date()
+    }
+
+    private static let persistenceKey = "zones.runTracking.activeSession.v2"
+}
+
+// MARK: - Persistence
+
+private struct PersistedRunSession: Codable {
+    /// True when the user had tapped Start run and not Stop (survives process death).
+    var active: Bool
+    var distanceMeters: Double
+    var lastLatitude: Double?
+    var lastLongitude: Double?
+    /// Each entry is `[latitude, longitude]`.
+    var points: [[Double]]
 }
 
 extension RunTrackingService: CLLocationManagerDelegate {

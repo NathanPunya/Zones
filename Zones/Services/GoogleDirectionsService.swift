@@ -3,12 +3,47 @@ import Foundation
 import GoogleMaps
 
 /// Snaps a candidate loop to walkable paths using the Google Directions API (same API key as Maps SDK; enable “Directions API” in Google Cloud).
+/// Uses `avoid=ferries` so routes don’t use passenger ferries / boat legs.
 enum GoogleDirectionsService {
     enum DirectionsError: Error {
         case invalidResponse
         case apiStatus(String, String?)
         case noPath
         case invalidAnchors
+    }
+
+    /// Short hint for UI when street routing fails (Maps SDK can work while REST Directions is denied).
+    static func userFacingHint(for error: Error) -> String {
+        guard let err = error as? DirectionsError else {
+            return error.localizedDescription
+        }
+        switch err {
+        case .apiStatus(let status, let message):
+            let tail: String = {
+                guard let m = message, !m.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+                return " (\(m))"
+            }()
+            switch status {
+            case "REQUEST_DENIED":
+                return "Request denied — enable Directions API and billing for this Google Cloud project; iOS key restrictions do not apply the same way to REST Directions as to the Maps SDK.\(tail)"
+            case "ZERO_RESULTS":
+                return "No walking route for this shape — try moving the map, lowering route size, or switching Roads only / Roads & hikes.\(tail)"
+            case "INVALID_REQUEST", "NOT_FOUND":
+                return "Directions could not build this request (\(status)).\(tail)"
+            case "OVER_QUERY_LIMIT", "RESOURCE_EXCEEDED":
+                return "Directions quota exceeded. Try again later.\(tail)"
+            case "DECODE_ERROR":
+                return "Directions returned an unexpected payload (proxy/HTML or wrong endpoint).\(tail)"
+            default:
+                return "Directions: \(status).\(tail)"
+            }
+        case .invalidResponse:
+            return "Invalid response from Directions."
+        case .noPath:
+            return "No path in Directions response."
+        case .invalidAnchors:
+            return "Invalid route anchors."
+        }
     }
 
     /// Cold-start Directions calls can hit transient path/QUIC noise; wait for connectivity and retry URL errors.
@@ -35,6 +70,7 @@ enum GoogleDirectionsService {
     }
 
     /// Closed walking loop: starts and ends at `userLocation`, visiting `loopWaypoints` in an order optimized by Google.
+    /// Tries waypoint optimization first; on some failures retries with fixed circular order (often succeeds for `walking` when optimization returns `ZERO_RESULTS`).
     static func fetchWalkingLoop(
         userLocation: CLLocationCoordinate2D,
         loopWaypoints: [CLLocationCoordinate2D],
@@ -45,23 +81,54 @@ enum GoogleDirectionsService {
             throw DirectionsError.apiStatus("MISSING_KEY", "Add a valid GMSApiKey and enable Directions API.")
         }
         guard loopWaypoints.count >= 2 else { throw DirectionsError.invalidAnchors }
+        _ = surfacePreference
 
+        do {
+            return try await fetchWalkingLoopOnce(
+                key: key,
+                userLocation: userLocation,
+                loopWaypoints: loopWaypoints,
+                optimizeWaypoints: true
+            )
+        } catch {
+            guard shouldRetryWalkingLoopWithFixedWaypointOrder(error) else { throw error }
+            return try await fetchWalkingLoopOnce(
+                key: key,
+                userLocation: userLocation,
+                loopWaypoints: loopWaypoints,
+                optimizeWaypoints: false
+            )
+        }
+    }
+
+    private static func shouldRetryWalkingLoopWithFixedWaypointOrder(_ error: Error) -> Bool {
+        guard let err = error as? DirectionsError else { return false }
+        guard case .apiStatus(let status, _) = err else { return false }
+        switch status {
+        case "REQUEST_DENIED", "OVER_QUERY_LIMIT", "RESOURCE_EXCEEDED", "MAX_WAYPOINTS_EXCEEDED", "MISSING_KEY", "DECODE_ERROR":
+            return false
+        default:
+            return true
+        }
+    }
+
+    private static func fetchWalkingLoopOnce(
+        key: String,
+        userLocation: CLLocationCoordinate2D,
+        loopWaypoints: [CLLocationCoordinate2D],
+        optimizeWaypoints: Bool
+    ) async throws -> [CLLocationCoordinate2D] {
         let origin = userLocation
         let destination = userLocation
-
-        // Reorder intermediate stops to minimize total walking distance (fewer redundant blocks in grid cities).
-        let waypointParam = "optimize:true|" + loopWaypoints.map(coordinateString).joined(separator: "|")
+        let coords = loopWaypoints.map(coordinateString).joined(separator: "|")
+        let waypointParam = optimizeWaypoints ? ("optimize:true|" + coords) : coords
 
         var components = URLComponents(string: "https://maps.googleapis.com/maps/api/directions/json")!
-        components.queryItems = [
+        components.queryItems = walkingDirectionsQueryItems(key: key, extra: [
             URLQueryItem(name: "origin", value: coordinateString(origin)),
             URLQueryItem(name: "destination", value: coordinateString(destination)),
-            URLQueryItem(name: "waypoints", value: waypointParam),
-            URLQueryItem(name: "mode", value: "walking"),
-            URLQueryItem(name: "key", value: key)
-        ]
-        // Waypoint layout comes from `surfacePreference` in `RouteSuggestionEngine`; request stays `walking` for both.
-        _ = surfacePreference
+            URLQueryItem(name: "waypoints", value: waypointParam)
+        ])
 
         guard let url = components.url else { throw DirectionsError.invalidResponse }
 
@@ -70,7 +137,13 @@ enum GoogleDirectionsService {
             throw DirectionsError.invalidResponse
         }
 
-        let decoded = try JSONDecoder().decode(DirectionsResponse.self, from: data)
+        let decoded: DirectionsResponse
+        do {
+            decoded = try JSONDecoder().decode(DirectionsResponse.self, from: data)
+        } catch {
+            let snippet = String(data: data, encoding: .utf8).map { String($0.prefix(280)) } ?? ""
+            throw DirectionsError.apiStatus("DECODE_ERROR", snippet.isEmpty ? nil : snippet)
+        }
         guard decoded.status == "OK", let route = decoded.routes.first else {
             throw DirectionsError.apiStatus(decoded.status, decoded.error_message)
         }
@@ -78,6 +151,15 @@ enum GoogleDirectionsService {
         let path = decodeOverviewPolyline(route.overview_polyline.points)
         guard path.count >= 2 else { throw DirectionsError.noPath }
         return path
+    }
+
+    /// Query items shared by walking Directions calls: mode, avoid ferries, API key.
+    private static func walkingDirectionsQueryItems(key: String, extra: [URLQueryItem]) -> [URLQueryItem] {
+        extra + [
+            URLQueryItem(name: "mode", value: "walking"),
+            URLQueryItem(name: "avoid", value: "ferries"),
+            URLQueryItem(name: "key", value: key)
+        ]
     }
 
     /// Single walking leg between two points (used to replace redundant out-and-back spurs on a larger loop).
@@ -88,12 +170,10 @@ enum GoogleDirectionsService {
         }
 
         var components = URLComponents(string: "https://maps.googleapis.com/maps/api/directions/json")!
-        components.queryItems = [
+        components.queryItems = walkingDirectionsQueryItems(key: key, extra: [
             URLQueryItem(name: "origin", value: coordinateString(origin)),
-            URLQueryItem(name: "destination", value: coordinateString(destination)),
-            URLQueryItem(name: "mode", value: "walking"),
-            URLQueryItem(name: "key", value: key)
-        ]
+            URLQueryItem(name: "destination", value: coordinateString(destination))
+        ])
 
         guard let url = components.url else { throw DirectionsError.invalidResponse }
 

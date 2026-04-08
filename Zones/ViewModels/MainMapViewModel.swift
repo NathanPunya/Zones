@@ -21,6 +21,7 @@ final class MainMapViewModel: ObservableObject {
     @Published var bannerMessage: String?
 
     private let sync: TerritorySyncing
+    private let logStore: AppDiagnosticsLogStore
     private let routeEngine = RouteSuggestionEngine()
     private var cancellables = Set<AnyCancellable>()
     private var routeFetchTask: Task<Void, Never>?
@@ -31,8 +32,13 @@ final class MainMapViewModel: ObservableObject {
     /// Incremented on each `refreshSuggestions` with a valid center so only the latest in-flight fetch may finish UI/loading.
     private var refreshEpoch: UInt64 = 0
 
-    init(sync: TerritorySyncing) {
+    /// Same step as uniqueness / “New route” so failed Directions calls can retry with a different triangle orientation.
+    private static let routeOrientationRetryStepRadians = (Double.pi * 2) / 7
+    private static let maxStreetDirectionsOrientationAttempts = 12
+
+    init(sync: TerritorySyncing, logStore: AppDiagnosticsLogStore) {
         self.sync = sync
+        self.logStore = logStore
     }
 
     deinit {
@@ -84,9 +90,10 @@ final class MainMapViewModel: ObservableObject {
         if affectsLoadingUI {
             isRefreshingSuggestedRoute = true
             bannerMessage = nil
-        } else {
-            isRefreshingSuggestedRoute = false
         }
+        // Do not set `isRefreshingSuggestedRoute = false` when `showsProgress` is false: a GPS/auth
+        // refresh would clear “Building route…” while the async work is still running or gets cancelled,
+        // leaving no insight and no spinner.
 
         routeFetchTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -117,9 +124,7 @@ final class MainMapViewModel: ObservableObject {
                     self.suggestedLoops = []
                     self.suggestedRouteDistanceMeters = 0
                     self.routeInsight = nil
-                    if affectsLoadingUI {
-                        self.isRefreshingSuggestedRoute = false
-                    }
+                    self.isRefreshingSuggestedRoute = false
                     if affectsLoadingUI {
                         self.bannerMessage = "No suggested loop here — try moving the map or adjusting the slider."
                     }
@@ -135,7 +140,7 @@ final class MainMapViewModel: ObservableObject {
                    uniquenessAttempt < maxUniquenessAttempts - 1 {
                     uniquenessAttempt += 1
                     if Task.isCancelled {
-                        if epoch == self.refreshEpoch, affectsLoadingUI {
+                        if epoch == self.refreshEpoch {
                             self.isRefreshingSuggestedRoute = false
                         }
                         return
@@ -148,7 +153,7 @@ final class MainMapViewModel: ObservableObject {
                 }
 
                 guard !Task.isCancelled else {
-                    if epoch == self.refreshEpoch, affectsLoadingUI {
+                    if epoch == self.refreshEpoch {
                         self.isRefreshingSuggestedRoute = false
                     }
                     return
@@ -168,42 +173,49 @@ final class MainMapViewModel: ObservableObject {
                     pathKind: pathKind,
                     enclosedAreaSquareMeters: areaM2
                 )
-                if affectsLoadingUI {
-                    self.isRefreshingSuggestedRoute = false
-                }
+                self.isRefreshingSuggestedRoute = false
                 return
             }
         }
     }
 
-    /// Builds one candidate loop using current `routeOrientationBiasRadians`.
+    /// Builds one candidate loop using current `routeOrientationBiasRadians`, retrying rotated orientations when Directions has no path (same step as “New route”) instead of showing the dense circle preview.
     private func computeSuggestedLoop(
         center: CLLocationCoordinate2D,
         recentDistances: [Double],
         surfacePreference: RouteSurfacePreference
     ) async -> ([CLLocationCoordinate2D], RouteSuggestionEngine.Suggestion, RouteInsight.PathKind)? {
-        let suggestions = routeEngine.suggest(
-            center: center,
-            existingZones: zones,
-            recentRunDistances: recentDistances,
-            desiredDifficulty: desiredDifficulty,
-            surfacePreference: surfacePreference,
-            extraAngleRadians: routeOrientationBiasRadians
-        )
+        if !AppConfiguration.hasGoogleMapsKey {
+            let suggestions = routeEngine.suggest(
+                center: center,
+                existingZones: zones,
+                recentRunDistances: recentDistances,
+                desiredDifficulty: desiredDifficulty,
+                surfacePreference: surfacePreference,
+                extraAngleRadians: routeOrientationBiasRadians
+            )
+            guard let best = suggestions.first else { return nil }
+            return (best.fallbackDense, best, .circlePreview)
+        }
 
-        guard var best = suggestions.first else { return nil }
+        var lastDirectionsError: Error?
+        for attempt in 0..<Self.maxStreetDirectionsOrientationAttempts {
+            let angle = routeOrientationBiasRadians + Double(attempt) * Self.routeOrientationRetryStepRadians
+            guard var best = routeEngine.suggest(
+                center: center,
+                existingZones: zones,
+                recentRunDistances: recentDistances,
+                desiredDifficulty: desiredDifficulty,
+                surfacePreference: surfacePreference,
+                extraAngleRadians: angle
+            ).first else { continue }
 
-        let loop: [CLLocationCoordinate2D]
-        var pathKind = RouteInsight.PathKind.circlePreview
-
-        if AppConfiguration.hasGoogleMapsKey {
             do {
                 var path = try await GoogleDirectionsService.fetchWalkingLoop(
                     userLocation: best.userLocation,
                     loopWaypoints: best.loopWaypoints,
                     surfacePreference: surfacePreference
                 )
-                pathKind = .streetSnapped
                 if RoutePathRefinement.corridorReuseScore(path: path) > 0.28 {
                     for extra in [Double.pi / 4, -Double.pi / 3, Double.pi / 2] {
                         guard let alt = routeEngine.suggest(
@@ -212,7 +224,7 @@ final class MainMapViewModel: ObservableObject {
                             recentRunDistances: recentDistances,
                             desiredDifficulty: desiredDifficulty,
                             surfacePreference: surfacePreference,
-                            extraAngleRadians: routeOrientationBiasRadians + extra
+                            extraAngleRadians: angle + extra
                         ).first else { continue }
                         do {
                             let candidate = try await GoogleDirectionsService.fetchWalkingLoop(
@@ -232,15 +244,20 @@ final class MainMapViewModel: ObservableObject {
                     }
                 }
                 path = await RoutePathRefinement.refinedByShorteningSpurs(path)
-                loop = path
+                routeOrientationBiasRadians = angle
+                return (path, best, .streetSnapped)
             } catch {
-                loop = best.fallbackDense
+                lastDirectionsError = error
+                continue
             }
-        } else {
-            loop = best.fallbackDense
         }
 
-        return (loop, best, pathKind)
+        if let lastDirectionsError {
+            logStore.logGoogleDirectionsFallback(
+                GoogleDirectionsService.userFacingHint(for: lastDirectionsError)
+            )
+        }
+        return nil
     }
 
     func claimLoop(points: [CLLocationCoordinate2D], area: Double) async {
