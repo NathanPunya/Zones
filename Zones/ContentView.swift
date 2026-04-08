@@ -89,7 +89,8 @@ struct ContentView: View {
                             trafficEnabled: mapTrafficEnabled,
                             routePoints: runTracker.runPoints,
                             zonePolygons: mapModel.zones,
-                            suggestedRoutes: mapModel.showAIRoute ? mapModel.suggestedLoops : []
+                            suggestedRoutes: mapModel.showAIRoute ? mapModel.suggestedLoops : [],
+                            routePanelBottomInset: mapModel.showAIRoute ? 268 : 0
                         )
                         .ignoresSafeArea(edges: [.bottom, .leading, .trailing])
 
@@ -391,6 +392,7 @@ struct ContentView: View {
                                 routeLevelSliderValue = r
                             }
                         }
+                        .padding(.horizontal, 20)
                         .onChange(of: routeLevelSliderValue) { _, v in
                             let level = Int(v.rounded())
                             if level != routeSliderLastHapticLevel {

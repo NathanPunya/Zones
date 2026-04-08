@@ -60,17 +60,11 @@ struct RouteInsightCard: View {
                                 .foregroundStyle(.secondary)
                         }
                     } else {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 6) {
                                 Text(formatDistance(pathDistanceMeters))
                                     .font(.subheadline.weight(.semibold))
                                     .monospacedDigit()
-                                Text("·")
-                                    .foregroundStyle(.tertiary)
-                                Text(formatArea(insight.enclosedAreaSquareMeters))
-                                    .font(.caption.weight(.semibold))
-                                    .monospacedDigit()
-                                    .foregroundStyle(.secondary)
                                 Text("·")
                                     .foregroundStyle(.tertiary)
                                 Text("Lv \(String(format: "%.0f", insight.level))")
@@ -80,9 +74,9 @@ struct RouteInsightCard: View {
                                     .padding(.vertical, 3)
                                     .background(.orange.gradient, in: Capsule())
                             }
-                            Text(UnitsFormat.routeWalkRunEstimateLabel(pathMeters: pathDistanceMeters))
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(.tertiary)
+                            Text("\(formatArea(insight.enclosedAreaSquareMeters)) loop · \(UnitsFormat.routeWalkRunEstimateLabel(pathMeters: pathDistanceMeters))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }
                     }
@@ -112,50 +106,27 @@ struct RouteInsightCard: View {
     }
 
     private var expandedDetails: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Divider()
                 .padding(.horizontal, -4)
 
-            Text("\(insight.tierLabel) · target size ~\(UnitsFormat.targetRadius(meters: Double(insight.targetRadiusMeters), units: measurementUnits))")
-                .font(.caption)
+            Text("\(insight.tierLabel) · ~\(UnitsFormat.targetRadius(meters: Double(insight.targetRadiusMeters), units: measurementUnits)) target")
+                .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Along streets")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(0.6)
-                Text(formatDistance(pathDistanceMeters))
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.primary)
-                Text(UnitsFormat.routeWalkRunEstimateLabel(pathMeters: pathDistanceMeters))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                Text("Assumes ~5 km/h walking and ~10 km/h running (easy pace). Times of one hour or more use decimal hours.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-
-            HStack(spacing: 12) {
-                metricPill(title: "Area (loop)", value: formatArea(insight.enclosedAreaSquareMeters))
+            HStack(spacing: 10) {
                 metricPill(title: "Score", value: String(format: "%.0f", insight.score))
                 metricPill(title: "Challenge", value: String(format: "%.0f", insight.challengeMetric))
                 Spacer(minLength: 0)
             }
 
-            HStack(alignment: .top, spacing: 6) {
+            HStack(alignment: .center, spacing: 6) {
                 Image(systemName: insight.pathKind == .streetSnapped ? "checkmark.circle.fill" : "map.circle")
                     .font(.caption)
                     .foregroundStyle(insight.pathKind == .streetSnapped ? .green : .orange)
-                Text(insight.pathKind == .streetSnapped
-                    ? "Snapped to walking paths (Google Directions)"
-                    : "Circle preview — enable Directions API for street paths")
+                Text(insight.pathKind == .streetSnapped ? "Walking paths (Directions)" : "Circle preview (no Directions)")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(.horizontal, 14)

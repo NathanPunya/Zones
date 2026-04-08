@@ -10,6 +10,8 @@ struct GoogleMapView: UIViewRepresentable {
     var routePoints: [CLLocationCoordinate2D]
     var zonePolygons: [ZoneRecord]
     var suggestedRoutes: [[CLLocationCoordinate2D]]
+    /// Insets the map’s “logical” frame so camera center / fit avoid the route-gen bottom panel.
+    var routePanelBottomInset: CGFloat = 0
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -28,6 +30,7 @@ struct GoogleMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: GMSMapView, context: Context) {
+        mapView.padding = UIEdgeInsets(top: 0, left: 0, bottom: routePanelBottomInset, right: 0)
         applyMapStyle(mapView)
         mapView.clear()
 
@@ -78,7 +81,9 @@ struct GoogleMapView: UIViewRepresentable {
             if sig != coordinator.lastSuggestedRouteSignature {
                 coordinator.lastSuggestedRouteSignature = sig
                 let bounds = Self.coordinateBounds(for: route)
-                let padding = UIEdgeInsets(top: 72, left: 48, bottom: 200, right: 48)
+                // When `routePanelBottomInset` is set, it already clears the panel; avoid double bottom inset.
+                let fitBottom: CGFloat = routePanelBottomInset > 0 ? 56 : 200
+                let padding = UIEdgeInsets(top: 72, left: 48, bottom: fitBottom, right: 48)
                 let update = GMSCameraUpdate.fit(bounds, with: padding)
                 mapView.animate(with: update)
             }
