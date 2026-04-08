@@ -106,6 +106,15 @@ struct SettingsView: View {
                 )
                 .font(.caption)
             }
+
+            Section {
+                EmptyView()
+            } footer: {
+                Text(AppReleaseInfo.settingsFooterLine)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
