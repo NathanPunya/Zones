@@ -16,6 +16,13 @@ private enum RouteLevelTickHaptics {
     }
 }
 
+private enum MapOverlayLayout {
+    /// Material control strip (Start run, Claim, padding) always covering the bottom of the map.
+    static let controlStripInset: CGFloat = 128
+    /// Route card, slider, and “New route” when AI routes are shown.
+    static let routeGenExtraInset: CGFloat = 252
+}
+
 struct ContentView: View {
     @ObservedObject var runTracker: RunTrackingService
     @ObservedObject var motion: CoreMotionService
@@ -48,6 +55,12 @@ struct ContentView: View {
 
     private var mapDisplayMode: MapDisplayMode {
         MapDisplayMode(rawValue: mapDisplayModeRaw) ?? .standard
+    }
+
+    /// Bottom padding for map camera so the “logical” center sits above overlaid UI. Always includes the run/claim bar; adds more when route gen is open.
+    private var mapBottomOverlayInset: CGFloat {
+        MapOverlayLayout.controlStripInset
+            + (mapModel.showAIRoute ? MapOverlayLayout.routeGenExtraInset : 0)
     }
 
     private static let routeGenToggleAnimation = Animation.spring(response: 0.48, dampingFraction: 0.86)
@@ -83,15 +96,29 @@ struct ContentView: View {
                     mapHeaderBar
 
                     ZStack(alignment: .bottom) {
-                        GoogleMapView(
-                            cameraTarget: $mapModel.cameraTarget,
-                            mapDisplayMode: mapDisplayMode,
-                            trafficEnabled: mapTrafficEnabled,
-                            routePoints: runTracker.runPoints,
-                            zonePolygons: mapModel.zones,
-                            suggestedRoutes: mapModel.showAIRoute ? mapModel.suggestedLoops : [],
-                            routePanelBottomInset: mapModel.showAIRoute ? 268 : 0
-                        )
+                        Group {
+                            if mapDisplayMode == .appleMaps || mapDisplayMode == .appleMapsSatellite {
+                                AppleMapView(
+                                    cameraTarget: $mapModel.cameraTarget,
+                                    satelliteImagery: mapDisplayMode == .appleMapsSatellite,
+                                    trafficEnabled: mapTrafficEnabled,
+                                    routePoints: runTracker.runPoints,
+                                    zonePolygons: mapModel.zones,
+                                    suggestedRoutes: mapModel.showAIRoute ? mapModel.suggestedLoops : [],
+                                    routePanelBottomInset: mapBottomOverlayInset
+                                )
+                            } else {
+                                GoogleMapView(
+                                    cameraTarget: $mapModel.cameraTarget,
+                                    mapDisplayMode: mapDisplayMode,
+                                    trafficEnabled: mapTrafficEnabled,
+                                    routePoints: runTracker.runPoints,
+                                    zonePolygons: mapModel.zones,
+                                    suggestedRoutes: mapModel.showAIRoute ? mapModel.suggestedLoops : [],
+                                    routePanelBottomInset: mapBottomOverlayInset
+                                )
+                            }
+                        }
                         .ignoresSafeArea(edges: [.bottom, .leading, .trailing])
 
                         VStack {
@@ -222,11 +249,13 @@ struct ContentView: View {
             if enabled {
                 RouteLevelTickHaptics.warmUp()
                 Task { _ = await health.recentRunDistances(days: 14) }
-            }
-            guard enabled else { return }
-            Task {
-                try? await Task.sleep(for: .milliseconds(50))
-                await scheduleSuggestedRouteRefresh(showsProgress: true)
+                Task {
+                    try? await Task.sleep(for: .milliseconds(50))
+                    await scheduleSuggestedRouteRefresh(showsProgress: true)
+                }
+            } else if let c = runTracker.currentLocation {
+                // Shorter bottom overlay: recenter so the user stays in the padded “logical” viewport.
+                mapModel.cameraTarget = c
             }
         }
     }

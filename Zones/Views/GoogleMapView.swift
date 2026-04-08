@@ -78,17 +78,17 @@ struct GoogleMapView: UIViewRepresentable {
             }
         } else if let route = suggestedRoutes.first, route.count >= 3 {
             let sig = Self.routeSignature(route)
-            if sig != coordinator.lastSuggestedRouteSignature {
-                coordinator.lastSuggestedRouteSignature = sig
+            let fitKey = "\(sig)_\(Int(routePanelBottomInset.rounded()))"
+            if fitKey != coordinator.lastRouteFitKey {
+                coordinator.lastRouteFitKey = fitKey
                 let bounds = Self.coordinateBounds(for: route)
-                // When `routePanelBottomInset` is set, it already clears the panel; avoid double bottom inset.
                 let fitBottom: CGFloat = routePanelBottomInset > 0 ? 56 : 200
                 let padding = UIEdgeInsets(top: 72, left: 48, bottom: fitBottom, right: 48)
                 let update = GMSCameraUpdate.fit(bounds, with: padding)
                 mapView.animate(with: update)
             }
         } else {
-            coordinator.lastSuggestedRouteSignature = nil
+            coordinator.lastRouteFitKey = nil
         }
     }
 
@@ -113,12 +113,14 @@ struct GoogleMapView: UIViewRepresentable {
             mapView.mapType = GMSMapViewType.normal
         case .satellite:
             mapView.mapType = GMSMapViewType.satellite
+        case .appleMaps, .appleMapsSatellite:
+            mapView.mapType = GMSMapViewType.normal
         }
         // Obj-C `trafficEnabled` (getter `isTrafficEnabled`); Swift exposes `isTrafficEnabled`.
         mapView.isTrafficEnabled = trafficEnabled
     }
 
     final class Coordinator {
-        var lastSuggestedRouteSignature: String?
+        var lastRouteFitKey: String?
     }
 }

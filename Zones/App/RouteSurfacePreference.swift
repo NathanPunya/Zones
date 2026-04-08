@@ -25,17 +25,21 @@ enum RouteSurfacePreference: String, CaseIterable, Identifiable {
     }
 }
 
-/// Basemap for `GMSMapView` (`UserDefaults` key `mapDisplayMode`).
+/// Map provider / style (`UserDefaults` key `mapDisplayMode`). Google options use `GMSMapView`; Apple options use MapKit.
 enum MapDisplayMode: String, CaseIterable, Identifiable {
     case standard
     case satellite
+    case appleMaps
+    case appleMapsSatellite
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .standard: return "Standard"
-        case .satellite: return "Satellite"
+        case .standard: return "Standard (Google)"
+        case .satellite: return "Satellite (Google)"
+        case .appleMaps: return "Standard (Apple)"
+        case .appleMapsSatellite: return "Satellite (Apple)"
         }
     }
 }
