@@ -34,6 +34,10 @@
 	<string>Zones needs your location to track runs and update the live map.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Zones uses motion data to detect running activity and improve GPS accuracy during sessions.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

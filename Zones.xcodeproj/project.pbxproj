@@ -38,6 +38,12 @@
 		BF0029 /* AppDiagnosticsLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0032 /* AppDiagnosticsLogStore.swift */; };
 		BF0030 /* AppLogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0033 /* AppLogsView.swift */; };
 		BF0031 /* AppleMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0034 /* AppleMapView.swift */; };
+		BF0040 /* RunTrackingActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0040 /* RunTrackingActivityAttributes.swift */; };
+		BF0041 /* RunTrackingActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0040 /* RunTrackingActivityAttributes.swift */; };
+		BF0042 /* RunTrackingLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0041 /* RunTrackingLiveActivity.swift */; };
+		BF0043 /* ZonesLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0042 /* ZonesLiveActivityBundle.swift */; };
+		BF0044 /* RunLiveActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0043 /* RunLiveActivityCoordinator.swift */; };
+		BF0050 /* ZonesLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FR0050 /* ZonesLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F47CF4BA2F7DE603001258CC /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0001 /* GoogleMaps */; };
 		F47CF4BB2F7DE603001258CC /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0002 /* FirebaseCore */; };
 		F47CF4BC2F7DE603001258CC /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = PKG0003 /* FirebaseFirestore */; };
@@ -78,7 +84,37 @@
 		FR0032 /* AppDiagnosticsLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDiagnosticsLogStore.swift; sourceTree = "<group>"; };
 		FR0033 /* AppLogsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogsView.swift; sourceTree = "<group>"; };
 		FR0034 /* AppleMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMapView.swift; sourceTree = "<group>"; };
+		FR0040 /* RunTrackingActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTrackingActivityAttributes.swift; sourceTree = "<group>"; };
+		FR0041 /* RunTrackingLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTrackingLiveActivity.swift; sourceTree = "<group>"; };
+		FR0042 /* ZonesLiveActivityBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonesLiveActivityBundle.swift; sourceTree = "<group>"; };
+		FR0043 /* RunLiveActivityCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLiveActivityCoordinator.swift; sourceTree = "<group>"; };
+		FR0045 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FR0050 /* ZonesLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ZonesLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		CP0001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PJ0001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = NT0002;
+			remoteInfo = ZonesLiveActivity;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		EMB0001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BF0050 /* ZonesLiveActivity.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		FW0001 /* Frameworks */ = {
@@ -91,6 +127,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FW0002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -98,6 +141,7 @@
 			isa = PBXGroup;
 			children = (
 				G00002 /* Zones */,
+				G00014 /* ZonesLiveActivity */,
 				G00003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -105,6 +149,7 @@
 		G00002 /* Zones */ = {
 			isa = PBXGroup;
 			children = (
+				G00013 /* LiveActivity */,
 				G00009 /* Generated */,
 				FR0001 /* ZonesApp.swift */,
 				FR0031 /* ZonesAppDelegate.swift */,
@@ -126,8 +171,27 @@
 			isa = PBXGroup;
 			children = (
 				FR0021 /* Zones.app */,
+				FR0050 /* ZonesLiveActivity.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		G00013 /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				FR0040 /* RunTrackingActivityAttributes.swift */,
+			);
+			path = LiveActivity;
+			sourceTree = "<group>";
+		};
+		G00014 /* ZonesLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				FR0041 /* RunTrackingLiveActivity.swift */,
+				FR0042 /* ZonesLiveActivityBundle.swift */,
+				FR0045 /* Info.plist */,
+			);
+			path = ZonesLiveActivity;
 			sourceTree = "<group>";
 		};
 		G00004 /* App */ = {
@@ -157,6 +221,7 @@
 				FR0007 /* ZoneGeometry.swift */,
 				FR0008 /* TerritorySyncService.swift */,
 				FR0009 /* RunTrackingService.swift */,
+				FR0043 /* RunLiveActivityCoordinator.swift */,
 				FR0010 /* CoreMotionService.swift */,
 				FR0011 /* HealthKitService.swift */,
 				FR0012 /* RouteSuggestionEngine.swift */,
@@ -209,10 +274,12 @@
 				SRC0001 /* Sources */,
 				FW0001 /* Frameworks */,
 				RES0001 /* Resources */,
+				EMB0001 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				DEP0001 /* PBXTargetDependency */,
 			);
 			name = Zones;
 			packageProductDependencies = (
@@ -224,7 +291,34 @@
 			productReference = FR0021 /* Zones.app */;
 			productType = "com.apple.product-type.application";
 		};
+		NT0002 /* ZonesLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BCL003 /* Build configuration list for PBXNativeTarget "ZonesLiveActivity" */;
+			buildPhases = (
+				SRC0002 /* Sources */,
+				FW0002 /* Frameworks */,
+				RES0002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ZonesLiveActivity;
+			packageProductDependencies = (
+			);
+			productName = ZonesLiveActivity;
+			productReference = FR0050 /* ZonesLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXTargetDependency section */
+		DEP0001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = NT0002 /* ZonesLiveActivity */;
+			targetProxy = CP0001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		PJ0001 /* Project object */ = {
@@ -235,6 +329,9 @@
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					NT0001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					NT0002 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -257,6 +354,7 @@
 			projectRoot = "";
 			targets = (
 				NT0001 /* Zones */,
+				NT0002 /* ZonesLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -268,6 +366,13 @@
 			files = (
 				BF0018 /* Assets.xcassets in Resources */,
 				BF0027 /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		RES0002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,6 +436,18 @@
 				BF0029 /* AppDiagnosticsLogStore.swift in Sources */,
 				BF0030 /* AppLogsView.swift in Sources */,
 				BF0031 /* AppleMapView.swift in Sources */,
+				BF0040 /* RunTrackingActivityAttributes.swift in Sources */,
+				BF0044 /* RunLiveActivityCoordinator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		SRC0002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BF0041 /* RunTrackingActivityAttributes.swift in Sources */,
+				BF0042 /* RunTrackingLiveActivity.swift in Sources */,
+				BF0043 /* ZonesLiveActivityBundle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -434,7 +551,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Zones/Zones.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -444,7 +561,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.zoners.Zones;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -462,7 +579,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Zones/Zones.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -472,9 +589,63 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.zoners.Zones;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		BC0005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = V7TW8CX2S3;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ZonesLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Zones;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zoners.Zones.ZonesLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		BC0006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = V7TW8CX2S3;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ZonesLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Zones;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zoners.Zones.ZonesLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -500,6 +671,15 @@
 			buildConfigurations = (
 				BC0003 /* Debug */,
 				BC0004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BCL003 /* Build configuration list for PBXNativeTarget "ZonesLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC0005 /* Debug */,
+				BC0006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

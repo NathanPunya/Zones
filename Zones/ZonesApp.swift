@@ -10,6 +10,7 @@ struct ZonesApp: App {
     @StateObject private var streaks = StreakService()
     @StateObject private var notifications = TerritoryNotificationService()
     @StateObject private var diagnosticsLog = AppDiagnosticsLogStore()
+    @StateObject private var runLiveActivity = RunLiveActivityCoordinator()
 
     var body: some Scene {
         WindowGroup {
@@ -21,6 +22,9 @@ struct ZonesApp: App {
                 notifications: notifications,
                 diagnosticsLog: diagnosticsLog
             )
+            .onAppear {
+                runLiveActivity.bind(runTracker: runTracker)
+            }
         }
     }
 }
