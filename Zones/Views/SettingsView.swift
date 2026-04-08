@@ -67,7 +67,9 @@ struct SettingsView: View {
                 Text("Map")
             } footer: {
                 Text(
-                    "Satellite shows aerial imagery. Traffic highlights road congestion when data is available from Google."
+                    "Google options use Google’s map data; Apple options use MapKit on your device. "
+                        + "Apple’s satellite mode uses aerial imagery with roads and points of interest on top (no extra API key). "
+                        + "Traffic applies to road-style maps when data is available."
                 )
                 .font(.caption)
             }
